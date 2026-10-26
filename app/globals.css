@@ -1101,3 +1101,119 @@ select:focus-visible,
 .answer-detail p { overflow-wrap: anywhere; }
 .answer-detail .answer-sub { padding-left: 12px; color: var(--ink-2); }
 .answer-gap { height: 5px; }
+
+/* ==================================================================
+   Issue rows — the headline, the fix, then the working folded away
+   ================================================================== */
+
+.issue-list { display: flex; flex-direction: column; gap: 10px; }
+
+.issue-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  justify-content: space-between;
+}
+.issue-headline { margin: 0; }
+
+.rule-tag {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  cursor: help;
+  white-space: nowrap;
+}
+.rule-tag:hover, .rule-tag:focus-visible { color: var(--ink); border-color: var(--ink-2); }
+
+.fix-all {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+}
+
+.working { margin-top: 10px; }
+.working > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.working > summary::-webkit-details-marker { display: none; }
+.working > summary::before {
+  content: '';
+  width: 0; height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform .15s ease;
+}
+.working[open] > summary::before { transform: rotate(90deg); }
+.working > summary:hover { color: var(--ink); }
+.working-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* Panels that explain HOW, not WHAT. Collapsed by default. */
+.card.explain { padding: 0; }
+.card.explain > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 15px var(--pad-card);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: var(--radius-card);
+}
+.card.explain > summary::-webkit-details-marker { display: none; }
+.card.explain > summary::before {
+  content: '';
+  width: 0; height: 0;
+  flex: none;
+  border-left: 5px solid var(--ink-2);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .15s ease;
+}
+.card.explain[open] > summary::before { transform: rotate(90deg); }
+.card.explain > summary:hover { background: var(--inset); }
+.explain-body { padding: 0 2px 2px; }
+/* The nested card inside is the panel itself; drop its chrome. */
+.explain-body > .card {
+  border: 0;
+  box-shadow: none;
+  padding-top: 0;
+}
+
+/* A neutral solid button, for actions on surfaces that report a rule result
+   where the brand orange must never appear. */
+.btn-solid {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+.btn-solid:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); opacity: .88; }
+
+/* Exposure reads as a figure with a bar, not as a rule across the card. */
+.risk { display: flex; align-items: center; gap: 8px; margin: 9px 0 11px; }
+.risk-track {
+  flex: none;
+  width: 56px; height: 3px;
+  border-radius: 2px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+.risk-track > span { display: block; height: 100%; background: var(--sev); border-radius: 2px; }

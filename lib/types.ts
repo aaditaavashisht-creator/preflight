@@ -51,6 +51,12 @@ export interface Issue {
   rule: string;
   severity: Severity;
   title: string;
+  /**
+   * One plain sentence carrying the actual numbers, written for a seller who
+   * has never read the rulebook. This is what the dossier leads with; the
+   * title, observed, expected and diagnosis are the working behind it.
+   */
+  headline: string;
   observed: string;
   expected: string;
   /** Names the field that is wrong, as an instruction to a seller. */

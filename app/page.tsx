@@ -123,6 +123,11 @@ export default function Page() {
     applyToSelected((b) => issue.fix!.apply(b));
   }, [applyToSelected]);
 
+  /** Every fix on the booking, applied in order, re-running the rules between each. */
+  const onApplyAllFixes = useCallback(() => {
+    applyToSelected((b) => { applyAllFixes(b, today, { hsTitles }); });
+  }, [applyToSelected, today, hsTitles]);
+
   function loadDemo() {
     const draft = bookings.find((b) => b.id === DRAFT_ID) ?? blankBooking(DRAFT_ID);
     setBookings([...makeFixtures(today), draft]);
@@ -238,11 +243,12 @@ export default function Page() {
             ) : (
               <>
                 <VerdictBand booking={selected} result={result} />
-                <Readiness booking={selected} result={result} />
-                <CheckRun booking={selected} result={result} />
-                <BookingCard booking={selected} result={result} />
-                <ItemsTable booking={selected} issues={result.issues} />
-                <Issues issues={result.issues} onApply={onApplyFix} booking={selected} />
+                <Issues
+                  issues={result.issues}
+                  onApply={onApplyFix}
+                  onApplyAll={onApplyAllFixes}
+                  booking={selected}
+                />
                 <Carrier
                   booking={selected}
                   rec={result.recommendation}
@@ -250,6 +256,22 @@ export default function Page() {
                   onWeights={setWeights}
                 />
                 <Confirmation booking={selected} result={result} today={today} />
+                <BookingCard booking={selected} result={result} />
+                <ItemsTable booking={selected} issues={result.issues} />
+
+                {/* How it was checked, rather than what is wrong. Folded away. */}
+                <details className="card explain">
+                  <summary className="t-section">Readiness, stage by stage</summary>
+                  <div className="explain-body">
+                    <Readiness booking={selected} result={result} />
+                  </div>
+                </details>
+                <details className="card explain">
+                  <summary className="t-section">How this was checked</summary>
+                  <div className="explain-body">
+                    <CheckRun booking={selected} result={result} />
+                  </div>
+                </details>
                 <p className="t-label" style={{ textAlign: 'center', padding: '4px 0 0' }}>
                   Today is treated as {fmtDate(today)}. Everything runs in this browser; nothing is
                   uploaded, stored or sent anywhere.

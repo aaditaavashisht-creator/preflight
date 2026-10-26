@@ -129,6 +129,16 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Red',
       sku,
       branch: d.branch,
+      headline:
+        d.branch === 'leading-zero'
+          ? `${sku}'s commodity code reads ${d.code}, five digits. It is ${d.proposal} with the leading zero dropped.`
+          : d.branch === 'blank'
+            ? `${sku} has no commodity code at all.`
+            : d.branch === 'not-in-tariff'
+              ? `${sku}'s code ${d.code.slice(0, 6)} is long enough, but it is not a subheading the tariff issues.`
+              : d.branch === 'non-numeric'
+                ? `${sku}'s commodity code has characters in it that are not digits.`
+                : `${sku}'s commodity code has ${d.code.length} digit${d.code.length === 1 ? '' : 's'} where six are needed.`,
       title: `${sku} cannot clear customs on the code given`,
       observed: d.code === '' ? 'No commodity code' : `Commodity code ${d.code} (${d.code.length} digits)`,
       expected: 'A commodity code of at least 6 digits',
@@ -184,6 +194,14 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Red',
       branch: value.branch,
       sku: value.culpritSku ?? undefined,
+      headline:
+        value.branch === 'item-price' && value.culpritSku
+          ? `${value.culpritSku} is priced at ${money(round2(booking.items.find((i) => i.sku === value.culpritSku)?.unitPrice ?? 0))} a unit. At that price the items come to ${money(round2(value.computed))}, not the ${money(value.declared)} declared.`
+          : value.branch === 'header-zero'
+            ? `The booking total says ${money(value.declared)} but the item lines come to ${money(round2(value.computed))}, exactly ${Math.round(Math.max(value.declared, value.computed) / Math.min(value.declared, value.computed))} times out.`
+            : value.branch === 'item-qty' && value.culpritSku
+              ? `${value.culpritSku}'s quantity looks wrong: changing it would close a ${money(Math.abs(round2(value.gap)))} gap between the items and the booking total.`
+              : `The item lines come to ${money(round2(value.computed))} and the booking declares ${money(value.declared)}. ${money(Math.abs(round2(value.gap)))} is unaccounted for.`,
       title: 'Declared value does not match the item lines',
       observed: `Declared ${money(value.declared)}, item lines come to ${money(round2(value.computed))}`,
       expected: 'The two agree to within 1%',
@@ -231,6 +249,12 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Red',
       sku,
       branch: d.branch,
+      headline:
+        d.branch === 'cartons'
+          ? `${sku} says ${nf(d.cartons)} carton${d.cartons === 1 ? '' : 's'}. ${nf(d.quantity)} units at ${nf(d.unitsPerCarton)} a carton is ${nf(d.correctedCartons ?? 0)}.`
+          : d.branch === 'packsize'
+            ? `${sku} says ${nf(d.unitsPerCarton)} a carton. ${nf(d.quantity)} units across ${nf(d.cartons)} cartons is ${nf(d.correctedUnitsPerCarton ?? 0)} a carton.`
+            : `${sku}: ${nf(d.quantity)} units, ${nf(d.unitsPerCarton)} a carton, ${nf(d.cartons)} cartons. No two of those three agree.`,
       title: `${sku} does not pack out`,
       observed: `${nf(d.unitsPerCarton)} a carton x ${nf(d.cartons)} cartons = ${nf(d.packed)} units, quantity says ${nf(d.quantity)}`,
       expected: 'Units per carton x cartons equals the quantity shipped',
@@ -276,6 +300,14 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Red',
       branch: cartons.branch,
       sku: cartons.culpritSku ?? undefined,
+      headline:
+        cartons.branch === 'single-item' && cartons.culpritSku
+          ? `The header says ${nf(cartons.booking)} cartons, the lines add up to ${nf(cartons.itemSum)}. Fixing ${cartons.culpritSku} above fixes this one too.`
+          : cartons.branch === 'header'
+            ? `The header says ${nf(cartons.booking)} cartons, the lines add up to ${nf(cartons.itemSum)}.`
+            : cartons.branch === 'incomplete'
+              ? `Some item rows have no carton count, so the lines cannot be totalled against the header's ${nf(cartons.booking)}.`
+              : `The header says ${nf(cartons.booking)} cartons, the lines add up to ${nf(cartons.itemSum)}, and item rows are wrong too.`,
       title: 'The booking carton total does not match the item lines',
       observed: `Booking says ${nf(cartons.booking)} cartons, item lines add up to ${nf(cartons.itemSum)}`,
       expected: 'The booking total equals the sum of the item lines',
@@ -305,6 +337,9 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       rule: 'R-05',
       severity: 'Red',
       branch: 'no-survivors',
+      headline:
+        `${nf(wpp)} kg a pallet. Nothing on the ${booking.destCountry} lane takes more than ` +
+        `${Math.max(...feas.all.map((c) => c.maxPerPallet))} kg.`,
       title: 'No service on this lane will take the pallets at this weight',
       observed: `${nf(booking.grossWeight!)} kg over ${nf(booking.pallets!)} pallets is ${nf(wpp)} kg a pallet`,
       expected: `At or under ${Math.max(...feas.all.map((c) => c.maxPerPallet))} kg a pallet, the heaviest ceiling on the ${booking.destCountry} lane`,
@@ -358,6 +393,9 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Red',
       sku,
       branch: hardHit ? 'declared' : 'confirm-cell',
+      headline: hardHit
+        ? `${sku} is ${item.description ? `a ${item.description.toLowerCase()}` : 'restricted'} — it cannot travel on a general road trailer undeclared.`
+        : `${sku} may have a cell fitted. If it does, this is dangerous goods.`,
       title: hardHit
         ? `${sku} is restricted on a road groupage trailer`
         : `${sku} needs a cell check before it can travel`,
@@ -391,6 +429,9 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
         rule: 'R-07',
         severity: 'Amber',
         branch: 'under-net',
+        headline:
+          `Gross is ${nf(booking.grossWeight)} kg, but the goods alone weigh ${nf(round2(net))} kg. ` +
+          `Gross has to include the cartons and pallets as well.`,
         title: 'Gross weight is below the weight of the goods themselves',
         observed: `Gross ${nf(booking.grossWeight)} kg against a net of ${nf(round2(net))} kg`,
         expected: 'Gross weight is at least the net weight, plus cartons and pallets',
@@ -424,6 +465,9 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       rule: 'R-08',
       severity: 'Amber',
       branch: booking.appointment === 'No' ? 'not-booked' : 'unknown',
+      headline:
+        `${booking.destCity || 'The destination'} is a warehouse and no delivery slot is booked. ` +
+        `Slots run three to five working days out.`,
       title: 'No delivery slot booked at the receiving warehouse',
       observed: booking.appointment === 'No' ? 'Appointment: No' : 'Appointment: not stated',
       expected: 'A booked delivery slot before the trailer leaves',
@@ -458,6 +502,7 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
       severity: 'Amber',
       sku,
       branch: 'blank',
+      headline: `${sku} has no country of origin, so no preferential duty can be claimed on it.`,
       title: `${sku} has no country of origin`,
       observed: 'Country of origin is blank',
       expected: 'The country where the goods were made',
@@ -486,6 +531,9 @@ export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptio
         rule: 'R-10',
         severity: 'Amber',
         branch: 'past',
+        headline:
+          `The ready date was ${fmtDate(ready)}, ${overdue} day${overdue === 1 ? '' : 's'} ago. ` +
+          `Nothing gets collected against a date in the past.`,
         title: 'The ready-to-ship date has already passed',
         observed: `Ready ${fmtDate(ready)}, which was ${overdue} day${overdue === 1 ? '' : 's'} ago`,
         expected: `A date from ${fmtDate(today)} onwards`,
@@ -615,13 +663,13 @@ export function check(b: Booking, today?: Date, weights?: Weights, opts?: Engine
 export function applyAllFixes(
   b: Booking,
   today?: Date,
-  opts?: { highConfidenceOnly?: boolean; limit?: number },
+  opts?: { highConfidenceOnly?: boolean; limit?: number } & EngineOptions,
 ): number {
   const limit = opts?.limit ?? 25;
   let applied = 0;
   const seen = new Set<string>();
   while (applied < limit) {
-    const issues = validate(b, today);
+    const issues = validate(b, today, opts);
     const next = issues.find((i) => {
       if (!i.fix) return false;
       if (opts?.highConfidenceOnly && i.confidence !== 'High') return false;

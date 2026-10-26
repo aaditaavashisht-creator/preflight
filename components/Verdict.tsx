@@ -65,25 +65,35 @@ export function VerdictBand({ booking, result }: { booking: Booking; result: Che
             ink. Only a figure that is itself the failing field takes colour. */}
         <Stat
           value={gbp(result.exposure)}
-          label="Exposure, planning estimate"
+          label={result.exposure > 0 ? `At risk across ${result.issues.length} issue${result.issues.length === 1 ? '' : 's'}` : 'Nothing at risk'}
           tone={tone}
           driving={false}
         />
         <Stat
           value={result.worstCaseDelay === 0 ? 'None' : `${result.worstCaseDelay} days`}
-          label="Worst-case delay"
+          label={result.worstCaseDelay > 0 ? 'Worst-case delay, longest single hold' : 'No delay expected'}
           tone={tone}
           driving={false}
         />
         <Stat
           value={result.weightPerPallet === null ? '—' : kg(result.weightPerPallet)}
-          label={rec.feasible || !result.weightPerPallet ? 'Weight per pallet' : 'Weight per pallet, over every ceiling'}
+          label={
+            result.weightPerPallet === null
+              ? 'Weight per pallet, not stated yet'
+              : weightDriving
+                ? 'Weight per pallet, over every ceiling'
+                : `Weight per pallet, within ${rec.ranked.length || 'the'} service ceiling${rec.ranked.length === 1 ? '' : 's'}`
+          }
           tone={tone}
           driving={weightDriving}
         />
         <Stat
           value={`${qty(booking.pallets)} x ${qty(booking.cartons)}`}
-          label="Pallets and cartons"
+          label={
+            cartonsDriving && result.itemCartons !== null
+              ? `Header cartons, item lines say ${result.itemCartons}`
+              : 'Pallets and cartons'
+          }
           tone={tone}
           driving={cartonsDriving}
         />
