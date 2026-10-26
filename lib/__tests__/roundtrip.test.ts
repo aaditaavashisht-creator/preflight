@@ -4,7 +4,11 @@ import { parseWorkbook } from '../parse-xlsx';
 import { validate } from '../rules';
 
 const TODAY = new Date(2026, 9, 26);
-const FILE = '/tmp/claude-0/-home-user/38a5ed92-9db1-5a5a-8f72-9ce9d78e9d91/scratchpad/judge-corrected.xlsx';
+import path from 'node:path';
+
+// Checked in so the round trip is reproducible: this is the exact workbook the
+// app's "Download corrected sheet" produced from the judge-format sample.
+const FILE = path.resolve(__dirname, '../../samples/preflight-corrected-example.xlsx');
 
 describe('the corrected sheet the app hands back', () => {
   it('re-uploads cleanly and carries the fixes', async () => {
