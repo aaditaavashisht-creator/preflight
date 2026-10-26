@@ -11,7 +11,9 @@ import { ItemsTable } from '@/components/ItemsTable';
 import { Queue, type QueueEntry } from '@/components/Queue';
 import { Readiness } from '@/components/Readiness';
 import { Upload, download } from '@/components/Upload';
+import ControlTower from '@/components/preflight/ControlTower';
 import { VerdictBand } from '@/components/Verdict';
+import { toBook } from '@/lib/dashboard';
 import { blankBooking, cloneBooking, makeFixtures } from '@/lib/fixtures';
 import { fmtDate, startOfDay } from '@/lib/format';
 import type { ParseResult, ParseWarning } from '@/lib/parse-xlsx';
@@ -30,6 +32,8 @@ function isoDate(d: Date): string {
 }
 
 type Pane = 'queue' | 'check' | 'chat';
+/** The whole book at once, or the one booking in front of you. */
+type View = 'book' | 'shipment';
 
 export default function Page() {
   const [bookings, setBookings] = useState<Booking[]>(() => [blankBooking(DRAFT_ID)]);
@@ -39,6 +43,7 @@ export default function Page() {
   const [warnings, setWarnings] = useState<ParseWarning[]>([]);
   const [drawer, setDrawer] = useState(false);
   const [pane, setPane] = useState<Pane>('check');
+  const [view, setView] = useState<View>('shipment');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
   const [hsTitles, setHsTitles] = useState<Record<string, string>>({});
 
@@ -104,6 +109,9 @@ export default function Page() {
     [selected, today, weights, hsTitles],
   );
 
+  /** The portfolio view reads the same results the queue does, never its own. */
+  const book = useMemo(() => toBook(entries, today), [entries, today]);
+
   const mutate = useCallback((id: string, fn: (b: Booking) => void) => {
     setBookings((list) => list.map((b) => {
       if (b.id !== id) return b;
@@ -167,14 +175,18 @@ export default function Page() {
     <div className="shell">
       <header className="masthead" ref={masthead}>
         <div className="masthead-inner">
-          <button
-            type="button"
-            className="btn drawer-btn"
-            aria-expanded={drawer}
-            onClick={() => setDrawer((d) => !d)}
-          >
-            Shipments
-          </button>
+          {/* The control tower already is the shipment list, so the drawer
+              that opens the queue has nothing to add while it is up. */}
+          {view === 'shipment' && (
+            <button
+              type="button"
+              className="btn drawer-btn"
+              aria-expanded={drawer}
+              onClick={() => setDrawer((d) => !d)}
+            >
+              Shipments
+            </button>
+          )}
 
           <div style={{ minWidth: 0 }}>
             <p className="t-section" style={{ letterSpacing: '-.01em' }}>Pre-flight</p>
@@ -203,6 +215,15 @@ export default function Page() {
                 }}
               />
             </span>
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={view === 'book'}
+              disabled={!loaded}
+              onClick={() => setView((v) => (v === 'book' ? 'shipment' : 'book'))}
+            >
+              {view === 'book' ? 'Back to the shipment' : 'Control tower'}
+            </button>
             <button type="button" className="btn" onClick={downloadCorrected} disabled={!loaded}>
               Download corrected sheet
             </button>
@@ -218,12 +239,30 @@ export default function Page() {
         </div>
       </header>
 
+      {view === 'shipment' && (
       <nav className="segmented" aria-label="Panes">
         <button type="button" aria-pressed={pane === 'queue'} onClick={() => setPane('queue')}>Shipments</button>
         <button type="button" aria-pressed={pane === 'check'} onClick={() => setPane('check')}>Check</button>
         <button type="button" aria-pressed={pane === 'chat'} onClick={() => setPane('chat')}>Chat</button>
       </nav>
+      )}
 
+      {view === 'book' ? (
+        <ControlTower
+          book={book}
+          onOpen={(id) => {
+            setSelectedId(id);
+            setWeights(null);
+            setView('shipment');
+            setPane('check');
+          }}
+          onQueue={() => {
+            setView('shipment');
+            setPane('queue');
+            setDrawer(true);
+          }}
+        />
+      ) : (
       <div className="workspace">
         {drawer && <div className="drawer-scrim" onClick={() => setDrawer(false)} />}
 
@@ -291,6 +330,7 @@ export default function Page() {
           />
         </aside>
       </div>
+      )}
     </div>
   );
 }
