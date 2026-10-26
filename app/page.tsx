@@ -40,6 +40,21 @@ export default function Page() {
   const [drawer, setDrawer] = useState(false);
   const [pane, setPane] = useState<Pane>('check');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
+  const [hsTitles, setHsTitles] = useState<Record<string, string>>({});
+
+  /**
+   * The official tariff vocabulary is 204 KB, so it is not in the first load.
+   * It arrives a moment later and only widens the suggestions; the rules and
+   * the verdicts are identical with or without it, because code validity is
+   * checked against the subheading list that ships in the bundle.
+   */
+  useEffect(() => {
+    let alive = true;
+    import('@/lib/generated/hs-lookup.json')
+      .then((m) => { if (alive) setHsTitles(m.default as Record<string, string>); })
+      .catch(() => { /* the curated table still covers the common goods */ });
+    return () => { alive = false; };
+  }, []);
   const masthead = useRef<HTMLElement>(null);
 
   // The masthead wraps on narrow screens, so the sticky columns have to learn
@@ -80,13 +95,13 @@ export default function Page() {
   const entries: QueueEntry[] = useMemo(
     () => bookings
       .filter((b) => b.id !== DRAFT_ID || hasContent(b))
-      .map((b) => ({ booking: b, result: check(b, today) })),
-    [bookings, today],
+      .map((b) => ({ booking: b, result: check(b, today, undefined, { hsTitles }) })),
+    [bookings, today, hsTitles],
   );
 
   const result = useMemo(
-    () => check(selected, today, weights ?? undefined),
-    [selected, today, weights],
+    () => check(selected, today, weights ?? undefined, { hsTitles }),
+    [selected, today, weights, hsTitles],
   );
 
   const mutate = useCallback((id: string, fn: (b: Booking) => void) => {

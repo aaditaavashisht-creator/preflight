@@ -12,7 +12,7 @@ function germany(pallets: number, grossWeight: number, priority: Priority | '' =
     pallets, grossWeight, priority,
     cartons: 10, declaredValue: 1000,
     items: [{
-      sku: 'X-1', description: 'Plain widget', hsCode: '123456',
+      sku: 'X-1', description: 'Plain widget', hsCode: '691200',
       quantity: 10, unitPrice: 100, unitsPerCarton: 1, cartons: 10,
       unitWeight: 1, countryOfOrigin: 'United Kingdom',
     }],

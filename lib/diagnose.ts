@@ -1,3 +1,4 @@
+import { PACKED_SUBHEADINGS } from './generated/hs-subheadings';
 import type { Booking, Item } from './types';
 
 /* ------------------------------------------------------------------ *
@@ -36,7 +37,7 @@ export const HS_LOOKUP: Array<[RegExp, string, string]> = [
   [/\bjeans\b/, '620342', 'cotton trousers'],
   [/\btrousers\b/, '620343', 'synthetic trousers'],
   [/\bdress(es)?\b/, '620443', 'synthetic dresses'],
-  [/\bjackets?\b/, '620193', 'outerwear jackets'],
+  [/\bjackets?\b/, '620140', 'anoraks and windjackets of man-made fibres'],
   [/\bscar(f|ves)\b/, '621420', 'wool scarves'],
   [/\b(hats?|caps?)\b/, '650500', 'knitted headgear'],
   [/\bcandles?\b/, '340600', 'candles and tapers'],
@@ -69,22 +70,82 @@ export const HS_LOOKUP: Array<[RegExp, string, string]> = [
 export interface HsSuggestion {
   code: string;
   label: string;
+  /** Where it came from, so the UI can say so. */
+  source: 'curated' | 'tariff';
 }
 
-export function suggestHs(description: string): HsSuggestion | null {
+/* ------------------------------------------------------------------ *
+ * The real tariff, baked in at build time
+ *
+ * scripts/fetch-tariff.mjs writes these from the UK Trade Tariff API. The
+ * shipped app makes no network call: the data is a static import, so the
+ * rulebook stays a pure function of its arguments and there is nothing to
+ * rate-limit or go down.
+ * ------------------------------------------------------------------ */
+
+let subheadings: Set<string> | null = null;
+
+/** 6,766 valid six digit subheadings, unpacked once on first use. */
+function subheadingSet(): Set<string> {
+  if (subheadings) return subheadings;
+  const out = new Set<string>();
+  for (let i = 0; i + 6 <= PACKED_SUBHEADINGS.length; i += 6) {
+    out.add(PACKED_SUBHEADINGS.slice(i, i + 6));
+  }
+  subheadings = out;
+  return out;
+}
+
+export function subheadingCount(): number {
+  return subheadingSet().size;
+}
+
+/** Is the first six digits of this code a real subheading in the tariff? */
+export function isRealSubheading(code: string): boolean {
+  const digits = (code ?? '').replace(/\D/g, '');
+  if (digits.length < 6) return false;
+  return subheadingSet().has(digits.slice(0, 6));
+}
+
+/**
+ * code -> official plain English titles, pipe separated.
+ *
+ * 204 KB of it, so it is NOT imported here. The UI loads it once with a
+ * dynamic import and hands it to the engine, which keeps the first load small
+ * and keeps validate() a pure function of its arguments.
+ */
+export type HsTitles = Record<string, string>;
+
+/**
+ * The curated table is searched first. It is small, but it is written for the
+ * goods this tool actually sees, and the official vocabulary is wrong on some
+ * of them: the tariff maps "notebook" to 847130, which is a laptop.
+ */
+export function suggestHs(description: string, titles: HsTitles = {}): HsSuggestion | null {
   const d = (description || '').toLowerCase();
   if (!d) return null;
   for (const [re, code, label] of HS_LOOKUP) {
-    if (re.test(d)) return { code, label };
+    if (re.test(d)) return { code, label, source: 'curated' };
   }
-  return null;
+  // Then the 8,272 official search references, longest title first so
+  // "cotton t-shirts" beats "shirts".
+  let best: { code: string; title: string } | null = null;
+  for (const code of Object.keys(titles)) {
+    for (const title of titles[code].split('|')) {
+      if (title.length < 4) continue;
+      if (!d.includes(title)) continue;
+      if (!best || title.length > best.title.length) best = { code, title };
+    }
+  }
+  return best ? { code: best.code, label: best.title, source: 'tariff' } : null;
 }
 
 /* ------------------------------------------------------------------ *
  * R-01 — HS code
  * ------------------------------------------------------------------ */
 
-export type HsBranch = 'ok' | 'leading-zero' | 'blank' | 'short' | 'non-numeric';
+export type HsBranch =
+  | 'ok' | 'leading-zero' | 'blank' | 'short' | 'non-numeric' | 'not-in-tariff';
 
 export interface HsDiagnosis {
   branch: HsBranch;
@@ -95,12 +156,12 @@ export interface HsDiagnosis {
   suggestion?: string;
 }
 
-export function diagnoseHs(item: Item): HsDiagnosis {
+export function diagnoseHs(item: Item, titles: HsTitles = {}): HsDiagnosis {
   const raw = (item.hsCode ?? '').toString().trim();
   const code = raw.replace(/[\s.]/g, '');
 
   if (code === '') {
-    const s = suggestHs(item.description);
+    const s = suggestHs(item.description, titles);
     return {
       branch: 'blank',
       code: '',
@@ -131,7 +192,24 @@ export function diagnoseHs(item: Item): HsDiagnosis {
   }
 
   if (code.length >= 6) {
-    return { branch: 'ok', code, proposal: null, confidence: '', diagnosis: '' };
+    if (isRealSubheading(code)) {
+      return { branch: 'ok', code, proposal: null, confidence: '', diagnosis: '' };
+    }
+    const s = suggestHs(item.description, titles);
+    return {
+      branch: 'not-in-tariff',
+      code,
+      proposal: null,
+      confidence: 'Medium',
+      diagnosis:
+        `${item.sku} has ${code.length} digits, so the length is fine, but ${code.slice(0, 6)} is ` +
+        `not a subheading in the UK Trade Tariff. A code that does not exist is rejected at the ` +
+        `same point a missing one is. Check it against the tariff and correct ${item.sku}.`,
+      suggestion: s
+        ? `From the description this looks like ${s.label}, heading ${s.code}. Confirm it before ` +
+          `you use it. Classification is your legal responsibility.`
+        : undefined,
+    };
   }
 
   if (code.length === 5) {
@@ -148,7 +226,7 @@ export function diagnoseHs(item: Item): HsDiagnosis {
     };
   }
 
-  const s = suggestHs(item.description);
+  const s = suggestHs(item.description, titles);
   return {
     branch: 'short',
     code,

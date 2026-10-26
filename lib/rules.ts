@@ -3,7 +3,7 @@ import { lane, serviceName } from './carriers';
 import { addDays, daysBetween, fmtDate, round2, startOfDay } from './format';
 import {
   COSTS, DG_HS_LABELS, DG_REMEDY, detectDg, diagnoseCartons, diagnoseCounts,
-  diagnoseHs, diagnoseValue, type CountDiagnosis,
+  diagnoseHs, diagnoseValue, type CountDiagnosis, type HsTitles,
 } from './diagnose';
 import type { Booking, CheckResult, Issue, Severity, Verdict, Weights } from './types';
 
@@ -105,14 +105,23 @@ function money(n: number): string {
 
 /* ------------------------------------------------------------------ */
 
-export function validate(booking: Booking, todayInput?: Date): Issue[] {
+export interface EngineOptions {
+  /**
+   * The official plain-English tariff vocabulary, loaded lazily by the UI.
+   * Left out, the engine falls back to its curated table, which covers the
+   * goods this tool actually sees.
+   */
+  hsTitles?: HsTitles;
+}
+
+export function validate(booking: Booking, todayInput?: Date, opts?: EngineOptions): Issue[] {
   const today = startOfDay(todayInput ?? new Date());
   const out: Issue[] = [];
   const items = booking.items;
 
   /* ---- R-01 HS code ---- */
   for (const item of items) {
-    const d = diagnoseHs(item);
+    const d = diagnoseHs(item, opts?.hsTitles);
     if (d.branch === 'ok') continue;
     const sku = item.sku;
     out.push({
@@ -579,8 +588,8 @@ export function itemCartonsOf(b: Booking): number | null {
 }
 
 /** One call: rules, verdict, exposure and the carrier ranking together. */
-export function check(b: Booking, today?: Date, weights?: Weights): CheckResult {
-  const issues = validate(b, today);
+export function check(b: Booking, today?: Date, weights?: Weights, opts?: EngineOptions): CheckResult {
+  const issues = validate(b, today, opts);
   const recommendation = recommend(b, weights);
   const f = feasibility(b);
   return {

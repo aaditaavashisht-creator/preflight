@@ -32,6 +32,29 @@ npx vercel --prod
 Vercel detects Next.js and serves `out/` as static files. Any static host works
 equally well: the whole app is the contents of `out/`.
 
+## Commodity codes
+
+`lib/generated/` holds the UK Trade Tariff baked in at build time: 6,766 valid
+six-digit subheadings and 8,272 official plain-English descriptions. Refresh it
+with:
+
+```
+npm run tariff
+```
+
+That script is the only thing in this repo that touches the network, and it runs
+on a developer's machine, never in a browser. The generated files are committed,
+so a build needs no network and the shipped app makes no API call at all. R-01
+can therefore tell a code that does not exist from one that is merely too short,
+and the rulebook stays a pure function of its arguments.
+
+The subheading list ships in the first load because it is small. The 204 KB
+description vocabulary is loaded lazily after paint: it only widens the
+suggestions, and verdicts are identical with or without it.
+
+Contains public sector information licensed under the Open Government Licence
+v3.0, from the [UK Trade Tariff](https://www.trade-tariff.service.gov.uk).
+
 ## How it is put together
 
 The rule engine is pure. Everything in `lib/` is a function of its arguments:
@@ -49,6 +72,7 @@ lib/
   parse-xlsx.ts   header mapping + sheet join
   sample-xlsx.ts  writes the sample and corrected workbooks
   fixtures.ts     the five demo bookings
+  generated/      the UK Trade Tariff, baked in by scripts/fetch-tariff.mjs
   format.ts       gbp(), qty(), fmtDate(), parseDMY()
 app/page.tsx      the three-region shell
 components/       Chat, Upload, Queue, Verdict, CheckRun, Readiness,

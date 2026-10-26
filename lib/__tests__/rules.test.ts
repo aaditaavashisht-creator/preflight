@@ -3,16 +3,20 @@ import {
   RULES, applicability, check, exposureOf, ruleStatuses, sortIssues,
   validate, verdictOf, worstCaseDelay,
 } from '../rules';
-import { diagnoseCartons, diagnoseCounts, diagnoseHs, diagnoseValue, detectDg, suggestHs } from '../diagnose';
+import {
+  HS_LOOKUP, diagnoseCartons, diagnoseCounts, diagnoseHs, diagnoseValue, detectDg,
+  isRealSubheading, subheadingCount, suggestHs,
+} from '../diagnose';
 import { blankBooking, cloneBooking } from '../fixtures';
 import { addDays, startOfDay } from '../format';
+import HS_TITLES from '../generated/hs-lookup.json';
 import type { Booking, Item } from '../types';
 
 const TODAY = startOfDay(new Date(2026, 5, 1));
 
 function mkItem(over: Partial<Item> = {}): Item {
   return {
-    sku: 'X-1', description: 'Plain widget', hsCode: '123456',
+    sku: 'X-1', description: 'Plain widget', hsCode: '691200',
     quantity: 100, unitPrice: 10, unitsPerCarton: 10, cartons: 10,
     unitWeight: 1, countryOfOrigin: 'United Kingdom',
     ...over,
@@ -564,5 +568,71 @@ describe('a rule with no rate card behind it is not green', () => {
 
   it('still marks it clear on a lane it does price', () => {
     expect(ruleStatuses(mkBooking(), validate(mkBooking(), TODAY))['R-05']).toBe('clear');
+  });
+});
+
+/* ---------------- the real tariff, baked in at build time ---------------- */
+
+describe('commodity codes are checked against the UK Trade Tariff', () => {
+  it('ships the whole six digit subheading list', () => {
+    expect(subheadingCount()).toBeGreaterThan(6000);
+  });
+
+  it('knows a real subheading from an invented one', () => {
+    expect(isRealSubheading('691200')).toBe(true);   // ceramic tableware
+    expect(isRealSubheading('610910')).toBe(true);   // knitted t-shirts
+    expect(isRealSubheading('090121')).toBe(true);   // roasted coffee
+    expect(isRealSubheading('123456')).toBe(false);  // not a code anyone issued
+    expect(isRealSubheading('620193')).toBe(false);  // looks plausible, is not real
+  });
+
+  it('reads the subheading out of a longer commodity code', () => {
+    expect(isRealSubheading('6912001000')).toBe(true);
+    expect(isRealSubheading('69120010')).toBe(true);
+    expect(isRealSubheading('6912')).toBe(false);
+  });
+
+  it('catches a code that is long enough but does not exist', () => {
+    const b = mkBooking({}, [mkItem({ sku: 'FAKE-1', description: 'Ceramic mug', hsCode: '123456' })]);
+    const i = validate(b, TODAY, { hsTitles: HS_TITLES })!.find((x) => x.rule === 'R-01')!;
+    expect(i.branch).toBe('not-in-tariff');
+    expect(i.severity).toBe('Red');
+    expect(i.diagnosis).toMatch(/the length is fine/);
+    expect(i.diagnosis).toMatch(/not a subheading in the UK Trade Tariff/);
+    expect(i.fix).toBeNull();
+    expect(i.suggestion).toMatch(/691200/);
+  });
+
+  it('leaves a real code alone', () => {
+    expect(validate(mkBooking({}, [mkItem({ hsCode: '691200' })]), TODAY)).toEqual([]);
+  });
+});
+
+describe('the curated vocabulary wins over the official one', () => {
+  it('maps a notebook to paper, not to a laptop', () => {
+    // The tariff's own search references map "notebook" to 847130, a laptop.
+    const s = suggestHs('A5 notebook, lined', HS_TITLES)!;
+    expect(s.code).toBe('482010');
+    expect(s.source).toBe('curated');
+  });
+
+  it('still covers the five the brief named', () => {
+    expect(suggestHs('Ceramic coffee mug')!.code).toBe('691200');
+    expect(suggestHs('Cotton t-shirt, crew neck')!.code).toBe('610910');
+    expect(suggestHs('Scented soy candle, 200 g')!.code).toBe('340600');
+    expect(suggestHs('Roasted coffee beans, 1 kg bag')!.code).toBe('090121');
+    expect(suggestHs('Cotton socks, 5-pack')!.code).toBe('611595');
+  });
+
+  it('falls through to the tariff for goods the curated table never listed', () => {
+    const s = suggestHs('a pallet of abaca manilla hemp', HS_TITLES);
+    expect(s?.source).toBe('tariff');
+    expect(s?.code).toBe('530500');
+  });
+
+  it('every curated code is a code the tariff actually issues', () => {
+    for (const [, code] of HS_LOOKUP.map((e) => [e[0], e[1]] as const)) {
+      expect(isRealSubheading(code as string), `curated ${code}`).toBe(true);
+    }
   });
 });

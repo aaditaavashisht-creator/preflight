@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "tariff": "node scripts/fetch-tariff.mjs"
   },
   "dependencies": {
     "geist": "1.3.1",
