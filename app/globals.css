@@ -1,0 +1,1007 @@
+/* ==================================================================
+   Pre-Flight — design tokens
+   Every text colour and the surface behind it comes from these.
+   ================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --ground: #ECECEF;
+  --surface: #FFFFFF;
+  --inset: #F6F6F8;
+  --ink: #15171C;
+  --ink-2: #5E636B;
+  --hairline: #E4E4E8;
+
+  --brand: #E8531F;
+  --brand-soft: #FDEEE7;
+
+  --red: #B3221B;
+  --red-soft: #FBEAE8;
+  --red-line: #E9B9B4;
+
+  --amber: #8A6100;
+  --amber-soft: #FBF2DA;
+  --amber-line: #E3CE94;
+
+  --green: #116A4E;
+  --green-soft: #E3F2EC;
+  --green-line: #A8D4C2;
+
+  --shadow-card: 0 1px 2px rgba(15, 17, 22, .05), 0 12px 32px -20px rgba(15, 17, 22, .35);
+
+  --radius-card: 16px;
+  --radius-band: 18px;
+  --radius-chip: 10px;
+  --pad-card: 18px;
+
+  --queue-w: 268px;
+  --rail-w: 380px;
+  --dossier-max: 820px;
+  --masthead-h: 54px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --ground: #0E1014;
+    --surface: #171A20;
+    --inset: #1E222A;
+    --ink: #E9ECF0;
+    --ink-2: #99A1AC;
+    --hairline: #272C35;
+
+    --brand: #FF7A4D;
+    --brand-soft: #2A1810;
+
+    --red: #F08B80;
+    --red-soft: #331C1A;
+    --red-line: #5A2E29;
+
+    --amber: #E0B257;
+    --amber-soft: #2E2410;
+    --amber-line: #54431F;
+
+    --green: #63CFA4;
+    --green-soft: #0F2C23;
+    --green-line: #27503F;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -20px rgba(0, 0, 0, .8);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ground: #0E1014;
+  --surface: #171A20;
+  --inset: #1E222A;
+  --ink: #E9ECF0;
+  --ink-2: #99A1AC;
+  --hairline: #272C35;
+
+  --brand: #FF7A4D;
+  --brand-soft: #2A1810;
+
+  --red: #F08B80;
+  --red-soft: #331C1A;
+  --red-line: #5A2E29;
+
+  --amber: #E0B257;
+  --amber-soft: #2E2410;
+  --amber-line: #54431F;
+
+  --green: #63CFA4;
+  --green-soft: #0F2C23;
+  --green-line: #27503F;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -20px rgba(0, 0, 0, .8);
+}
+
+/* ==================================================================
+   Reset and base
+   ================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ground);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Every figure lines up and does not jitter when it changes. */
+body { font-variant-numeric: tabular-nums; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+button { cursor: pointer; background: none; border: none; padding: 0; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+
+a { color: inherit; }
+
+h1, h2, h3, h4, p, figure { margin: 0; }
+ul, ol { margin: 0; padding: 0; }
+
+/* One focus style, neutral, so it never reads as a severity colour. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Form controls do not always inherit the global rule cleanly, so they get
+   it explicitly. Focus must be visible on every control. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.composer-well:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+/* Tabbing into a date field lands on a segment inside its shadow tree, so
+   the host never matches :focus. The wrapper does. */
+.date-wrap { display: inline-flex; border-radius: var(--radius-chip); }
+.date-wrap:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.masthead .date-wrap:focus-within { outline-color: currentColor; }
+
+::selection { background: var(--brand-soft); color: var(--ink); }
+
+/* ==================================================================
+   Type scale. Labels are sentence case, never all caps.
+   ================================================================== */
+
+.t-display   { font-size: 34px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
+.t-stat      { font-size: 26px; line-height: 1.1;  font-weight: 600; letter-spacing: -.02em; }
+.t-section   { font-size: 15px; line-height: 1.3;  font-weight: 600; letter-spacing: -.01em; }
+.t-card-title{ font-size: 14px; line-height: 1.35; font-weight: 600; }
+.t-body      { font-size: 14px; line-height: 1.5;  font-weight: 400; }
+.t-small     { font-size: 12px; line-height: 1.45; font-weight: 400; }
+.t-label     { font-size: 11px; line-height: 1.3;  font-weight: 500; color: var(--ink-2); }
+.t-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.muted { color: var(--ink-2); }
+.prose { max-width: 66ch; }
+
+/* ==================================================================
+   Shape and depth. One shadow, cards only.
+   ================================================================== */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card);
+  box-shadow: var(--shadow-card);
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.well {
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+}
+
+.hr { height: 1px; background: var(--hairline); border: 0; color: inherit; margin: 14px 0; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn:hover:not(:disabled) { background: var(--inset); }
+
+.btn-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand); filter: brightness(1.06); }
+
+:root[data-theme="dark"] .btn-primary,
+:root:not([data-theme="light"]) .btn-primary { color: #1A0C06; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .btn-primary { color: #fff; }
+}
+
+.btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-quiet:hover:not(:disabled) { background: var(--inset); color: var(--ink); }
+
+.input {
+  padding: 8px 10px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 13px;
+  width: 100%;
+}
+.input::placeholder { color: var(--ink-2); }
+
+/* ==================================================================
+   Severity. These three carry the rulebook's meaning.
+   No brand colour may appear on any surface that reports a rule result.
+   ================================================================== */
+
+.sev-red   { --sev: var(--red);   --sev-soft: var(--red-soft);   --sev-line: var(--red-line); }
+.sev-amber { --sev: var(--amber); --sev-soft: var(--amber-soft); --sev-line: var(--amber-line); }
+.sev-green { --sev: var(--green); --sev-soft: var(--green-soft); --sev-line: var(--green-line); }
+.sev-none  { --sev: var(--ink-2); --sev-soft: var(--inset);      --sev-line: var(--hairline); }
+
+.sev-text { color: var(--sev); }
+
+.sev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--sev-soft);
+  border: 1px solid var(--sev-line);
+  color: var(--sev);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--sev);
+  flex: none;
+}
+
+/* ==================================================================
+   Layout — three regions. The work in the middle, the assistant right.
+   ================================================================== */
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+}
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--brand);
+  color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, .12);
+}
+:root[data-theme="dark"] .masthead,
+:root:not([data-theme="light"]) .masthead { color: #1A0C06; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .masthead { color: #fff; }
+}
+
+.masthead-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.masthead .input {
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .3);
+  color: inherit;
+  width: auto;
+}
+.masthead .btn {
+  background: rgba(255, 255, 255, .14);
+  border-color: rgba(255, 255, 255, .28);
+  color: inherit;
+}
+.masthead .btn:hover:not(:disabled) { background: rgba(255, 255, 255, .24); }
+.masthead :focus-visible { outline-color: currentColor; }
+
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--queue-w) minmax(0, 1fr) var(--rail-w);
+  align-items: start;
+  gap: 0;
+  min-height: 0;
+}
+
+.col-queue {
+  border-right: 1px solid var(--hairline);
+  background: var(--surface);
+  position: sticky;
+  top: var(--masthead-h);
+  max-height: calc(100dvh - var(--masthead-h));
+  overflow-y: auto;
+}
+
+.col-dossier { min-width: 0; padding: 20px 16px 72px; }
+.dossier-inner {
+  max-width: var(--dossier-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.col-rail {
+  border-left: 1px solid var(--hairline);
+  background: var(--surface);
+  position: sticky;
+  top: var(--masthead-h);
+  height: calc(100dvh - var(--masthead-h));
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-width: 1439px) {
+  .workspace { grid-template-columns: minmax(0, 1fr) var(--rail-w); }
+  .col-queue {
+    position: fixed;
+    inset: var(--masthead-h) auto 0 0;
+    width: min(320px, 88vw);
+    z-index: 40;
+    transform: translateX(-102%);
+    transition: transform .18s ease;
+    box-shadow: var(--shadow-card);
+    max-height: none;
+    height: calc(100dvh - var(--masthead-h));
+  }
+  .col-queue[data-open="true"] { transform: translateX(0); }
+  .drawer-scrim {
+    position: fixed;
+    inset: var(--masthead-h) 0 0 0;
+    background: rgba(15, 17, 22, .32);
+    z-index: 39;
+  }
+}
+
+@media (max-width: 1023px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+
+  /* Below 1024 the queue is a pane in the segmented control, not a drawer,
+     so every bit of the drawer positioning has to be undone. */
+  .col-queue {
+    position: static;
+    transform: none;
+    width: auto;
+    height: auto;
+    max-height: none;
+    inset: auto;
+    z-index: auto;
+    box-shadow: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .drawer-scrim { display: none; }
+
+  .col-rail {
+    position: static;
+    height: auto;
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .col-dossier { padding: 16px 16px 48px; }
+  .pane[data-active="false"] { display: none; }
+}
+
+.segmented {
+  display: none;
+  gap: 4px;
+  padding: 4px;
+  margin: 12px 16px 0;
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+}
+.segmented button {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 17, 22, .06);
+}
+
+/* One column below 1024, so the panes need a switch. Above it they are all
+   on screen at once and the switch would be meaningless. */
+@media (max-width: 1023px) {
+  .segmented { display: flex; }
+}
+
+/* Wide tables scroll inside their own container, never the page. */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==================================================================
+   Motion — one orchestrated moment, the check run. Nothing else.
+   ================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==================================================================
+   Verdict band — the hero. A different kind of object from a card.
+   ================================================================== */
+
+.verdict-band {
+  border-radius: var(--radius-band);
+  background: var(--sev-soft);
+  border: 1px solid var(--sev-line);
+  padding: 22px var(--pad-card) 34px;
+}
+
+.verdict-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.verdict-head { color: var(--sev); }
+
+.verdict-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  min-width: 0;
+}
+@media (max-width: 560px) { .verdict-id { text-align: left; } }
+
+.verdict-line {
+  margin-top: 10px;
+  max-width: 66ch;
+  color: var(--ink);
+}
+
+.verdict-counts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* Stat strip — overlaps the band's lower edge by 20px. */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: -20px 10px 0;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 720px) {
+  .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  box-shadow: var(--shadow-card);
+  padding: 10px 12px 11px;
+  min-width: 0;
+}
+.stat-num { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-label { display: block; margin-top: 1px; }
+.stat[data-driving="true"] .stat-num { color: var(--sev); }
+
+/* ==================================================================
+   Issue cards — the 3px left border is the ONLY severity device here.
+   ================================================================== */
+
+.issue {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--sev);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card);
+}
+
+.issue + .issue { margin-top: 12px; }
+
+.issue-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Which of these actually costs money, visible without reading. */
+.risk-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--hairline);
+  margin: 10px 0 12px;
+  overflow: hidden;
+}
+.risk-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--sev);
+  border-radius: 2px;
+  transition: width .15s ease;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+@media (max-width: 520px) { .kv { grid-template-columns: 1fr; gap: 1px 0; } }
+.kv dt { color: var(--ink-2); font-size: 11px; font-weight: 500; padding-top: 2px; }
+.kv dd { margin: 0; font-size: 13px; }
+
+.note {
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+
+/* Action pills — the delta is the point. */
+.action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--inset);
+  text-align: left;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.action:hover:not(:disabled) { background: var(--surface); border-color: var(--ink-2); }
+.action-glyph {
+  flex: none;
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  color: var(--ink-2);
+}
+.action-label { flex: 1; font-size: 13px; font-weight: 500; min-width: 0; }
+.action-delta {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  border: 1px solid var(--green-line);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.action-delta[data-kind="neutral"] {
+  background: var(--surface);
+  border-color: var(--hairline);
+  color: var(--ink-2);
+}
+@media (max-width: 520px) {
+  .action { flex-wrap: wrap; }
+  .action-label { flex-basis: 100%; }
+}
+
+.no-fix {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  border: 1px dashed var(--hairline);
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+/* ==================================================================
+   Exceptions queue and its ten-cell rule strip
+   ================================================================== */
+
+.queue-head {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--hairline);
+  position: sticky; top: 0;
+  background: var(--surface);
+  z-index: 2;
+}
+
+.queue-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px 12px;
+  border-bottom: 1px solid var(--hairline);
+  transition: background-color .15s ease;
+}
+.queue-row:hover { background: var(--inset); }
+.queue-row[aria-current="true"] { background: var(--inset); box-shadow: inset 3px 0 0 var(--ink); }
+
+.queue-row-top {
+  display: flex; align-items: center; gap: 7px;
+  justify-content: space-between;
+}
+
+.rule-strip {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  margin-top: 8px;
+}
+.rule-cell {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--hairline);
+}
+.rule-cell[data-status="clear"] { background: var(--green); }
+.rule-cell[data-status="amber"] { background: var(--amber); }
+.rule-cell[data-status="red"]   { background: var(--red); }
+.rule-cell[data-status="na"]    { background: var(--hairline); }
+
+.rule-strip-lg .rule-cell { height: 10px; border-radius: 3px; }
+
+/* ==================================================================
+   Tables
+   ================================================================== */
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
+.tbl th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 0 10px 7px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--hairline);
+}
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl tbody tr:nth-child(even) { background: var(--inset); }
+.tbl .num { text-align: right; white-space: nowrap; }
+
+.tbl tr[data-pick="true"] { background: var(--green-soft) !important; }
+.tbl tr[data-excluded="true"] { opacity: .6; }
+.tbl tr[data-excluded="true"] .price { text-decoration: line-through; }
+
+.score-cell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.score-bar {
+  width: 54px; height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  overflow: hidden;
+  flex: none;
+}
+.score-bar > span { display: block; height: 100%; background: var(--ink-2); }
+.score-bar[data-pick="true"] > span { background: var(--green); }
+
+/* ==================================================================
+   Conversation rail — the one place orange is used generously
+   ================================================================== */
+
+.rail-head {
+  background: var(--brand-soft);
+  border-bottom: 1px solid var(--hairline);
+  padding: 13px 16px;
+}
+.rail-status {
+  display: flex; align-items: center; gap: 7px;
+  color: var(--brand);
+  margin-top: 2px;
+}
+.rail-status .dot { background: var(--brand); }
+
+.rail-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+}
+@media (max-width: 1023px) { .rail-log { max-height: 60vh; } }
+
+.bubble {
+  max-width: 86%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubble[data-from="seller"] {
+  align-self: flex-end;
+  background: var(--brand-soft);
+  border-bottom-right-radius: 5px;
+}
+.bubble[data-from="assistant"] {
+  align-self: flex-start;
+  background: var(--inset);
+  border-bottom-left-radius: 5px;
+}
+
+.capsule {
+  align-self: center;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-replies {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 0 16px 10px;
+}
+.quick-reply {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 12px;
+  transition: background-color .15s ease;
+}
+.quick-reply:hover { background: var(--inset); }
+
+.composer {
+  border-top: 1px solid var(--hairline);
+  padding: 12px 16px 14px;
+}
+.composer-well {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  padding: 6px 6px 6px 10px;
+}
+.composer-well textarea {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  resize: none;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 140px;
+  padding: 5px 0;
+}
+.send {
+  flex: none;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--brand);
+  color: #fff;
+  display: grid; place-items: center;
+}
+:root[data-theme="dark"] .send,
+:root:not([data-theme="light"]) .send { color: #1A0C06; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .send { color: #fff; }
+}
+.send:disabled { opacity: .45; }
+
+/* Inline item form parsed out of a message */
+.item-form {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  padding: 12px;
+  align-self: stretch;
+}
+.item-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.field .input { font-size: 12px; padding: 6px 8px; }
+
+/* ==================================================================
+   Readiness pipeline and the check run. No orange in either.
+   ================================================================== */
+
+.stages { display: flex; flex-direction: column; gap: 2px; }
+.stage {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-chip);
+}
+.stage[data-held="true"] { background: var(--sev-soft); }
+.stage-bar {
+  flex: none;
+  width: 44px; height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+.stage-bar > span { display: block; height: 100%; background: var(--sev); }
+
+.run-groups {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 620px;
+}
+.run-group { flex: 1; min-width: 0; }
+.run-nodes { display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+
+.node {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 9px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--hairline);
+  background: var(--inset);
+  font-size: 11px;
+  color: var(--ink-2);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.node[data-state="active"] {
+  border-color: var(--ink-2);
+  background: var(--surface);
+  color: var(--ink);
+}
+.node[data-state="clear"] { background: var(--green-soft); border-color: var(--green-line); color: var(--green); }
+.node[data-state="amber"] { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber); }
+.node[data-state="red"]   { background: var(--red-soft);   border-color: var(--red-line);   color: var(--red); }
+.node[data-state="pending"] { opacity: .55; }
+
+.node-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; flex: none; }
+.node[data-state="active"] .node-dot { animation: node-pulse 1s ease-in-out infinite; }
+@keyframes node-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+.run-status {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+/* ==================================================================
+   Drop zone and empty state
+   ================================================================== */
+
+.dropzone {
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--inset);
+  padding: 20px 16px;
+  text-align: center;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.dropzone[data-over="true"] { border-color: var(--brand); background: var(--brand-soft); }
+
+.empty { padding: 28px 0 0; }
+.empty-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+.slider-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--ink);
+  background: transparent;
+}
+
+.steps { counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+.step { display: flex; gap: 11px; align-items: flex-start; }
+.step-n {
+  counter-increment: step;
+  flex: none;
+  width: 21px; height: 21px;
+  border-radius: 999px;
+  background: var(--inset);
+  border: 1px solid var(--hairline);
+  display: grid; place-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.step-n::before { content: counter(step); }
+
+/* The queue becomes a drawer between 1024 and 1439, and a pane below that. */
+.drawer-btn { display: none; }
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .drawer-btn { display: inline-flex; }
+}
