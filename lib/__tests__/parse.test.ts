@@ -273,3 +273,42 @@ describe('a real .xlsx round trip', () => {
     expect(r01?.fix?.label).toContain('090121');
   });
 });
+
+/* ---------------- a file that is not what it claims ---------------- */
+
+describe('a sheet that is not the sheet we wanted', () => {
+  it('refuses it instead of inventing rows out of whatever was in it', async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ['Invoice number', 'Customer', 'Net', 'VAT', 'Gross'],
+      ['INV-1', 'Acme', 100, 20, 120],
+    ]), 'Bookings');
+    const bytes = new Uint8Array(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+
+    const r = await parseWorkbook(bytes);
+    expect(r.bookings).toHaveLength(0);
+    const refusal = r.warnings.find((w) => w.kind === 'unknown-header');
+    expect(refusal?.message).toMatch(/no row in this sheet looks like a header/i);
+    expect(refusal?.message).toMatch(/Booking ID/);
+  });
+
+  it('accepts a minimal but genuine sheet', async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ['Booking ID', 'Destination city', 'Pallets', 'Gross weight'],
+      ['BK-900', 'Berlin', 2, 400],
+    ]), 'Bookings');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ['Booking ID', 'SKU', 'Quantity'],
+      ['BK-900', 'A-1', 10],
+    ]), 'Items');
+    const bytes = new Uint8Array(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+
+    const r = await parseWorkbook(bytes);
+    expect(r.bookings).toHaveLength(1);
+    expect(r.bookings[0].destCountry).toBe('Germany');
+    expect(r.bookings[0].items).toHaveLength(1);
+  });
+});

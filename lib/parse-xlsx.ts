@@ -5,7 +5,9 @@ import type { Booking, Item, Priority } from './types';
 export type RawRow = Record<string, unknown>;
 
 export interface ParseWarning {
-  kind: 'orphan-item' | 'unknown-header' | 'ambiguous-date' | 'missing-sheet' | 'bad-row' | 'unknown-destination';
+  kind:
+    | 'orphan-item' | 'unknown-header' | 'ambiguous-date' | 'missing-sheet' | 'bad-row'
+    | 'unknown-destination' | 'header-row' | 'example-row';
   message: string;
   row?: number;
   bookingId?: string;
@@ -172,6 +174,139 @@ export function cellYesNo(v: unknown): 'Yes' | 'No' | '' {
   if (/^(y|yes|true|booked|confirmed|1)$/.test(s)) return 'Yes';
   if (/^(n|no|false|not booked|unbooked|none|0)$/.test(s)) return 'No';
   return '';
+}
+
+/* ------------------------------------------------------------------ *
+ * Finding the header row
+ *
+ * The judges' template puts an instruction sentence in row 1, the column
+ * names in row 2 and a grey example in row 3. Assuming row 1 is the header
+ * turns every column into __EMPTY_n, so the header row has to be found
+ * rather than assumed.
+ * ------------------------------------------------------------------ */
+
+/** How many of our fields this row's cells can be resolved to. */
+export function headerScore<T extends Record<string, readonly string[]>>(
+  row: unknown[] | undefined,
+  spec: T,
+): number {
+  if (!row || row.length === 0) return 0;
+  const filled = row.filter((c) => cellText(c) !== '').length;
+  if (filled < 2) return 0;
+  return Object.keys(mapHeaders(row, spec).map).length;
+}
+
+/**
+ * The row that resolves to the most known fields, searching the first few
+ * rows only. Ties go to the earliest row.
+ */
+export function findHeaderRow<T extends Record<string, readonly string[]>>(
+  aoa: unknown[][],
+  spec: T,
+  lookahead = 12,
+): number {
+  let best = 0;
+  let bestScore = -1;
+  for (let r = 0; r < Math.min(aoa.length, lookahead); r += 1) {
+    const score = headerScore(aoa[r], spec);
+    if (score > bestScore) { bestScore = score; best = r; }
+  }
+  return bestScore > 0 ? best : 0;
+}
+
+/**
+ * The template's own instruction line says which row is the example, so read
+ * it rather than guessing at a fill colour SheetJS cannot see.
+ * "Row 3 is an example (grey); enter data from row 4." -> 3
+ */
+export function exampleRowFromNotice(aoa: unknown[][], headerRowIndex: number): number | null {
+  for (let r = 0; r < headerRowIndex; r += 1) {
+    const text = (aoa[r] ?? []).map((c) => cellText(c)).join(' ');
+    const m = /\browe?\s*(\d{1,3})\s+is\s+an?\s+example/i.exec(text);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+/** Below this many recognised columns, a sheet is not the sheet we wanted. */
+export const MIN_HEADER_FIELDS = 3;
+
+export interface SheetRead {
+  rows: RawRow[];
+  headerRowIndex: number;
+  notes: ParseWarning[];
+  droppedExampleRows: number;
+}
+
+/** Reads one sheet into objects, finding the header row and the example row. */
+export function readSheet<T extends Record<string, readonly string[]>>(
+  aoa: unknown[][],
+  spec: T,
+  sheetName: string,
+): SheetRead {
+  const notes: ParseWarning[] = [];
+  const headerRowIndex = findHeaderRow(aoa, spec);
+  const header = (aoa[headerRowIndex] ?? []).map((c) => cellText(c));
+
+  // Garbage in has to come out as a clear refusal, not as rows.
+  const score = headerScore(aoa[headerRowIndex], spec);
+  if (score < MIN_HEADER_FIELDS) {
+    return {
+      rows: [],
+      headerRowIndex,
+      droppedExampleRows: 0,
+      notes: [{
+        kind: 'unknown-header',
+        message:
+          `${sheetName}: no row in this sheet looks like a header. Only ${score} of the expected ` +
+          `columns could be recognised, so nothing was loaded from it. Check that the sheet has a ` +
+          `row of column names such as "Booking ID", and that the file is a real spreadsheet.`,
+      }],
+    };
+  }
+
+  if (headerRowIndex > 0) {
+    notes.push({
+      kind: 'header-row',
+      row: headerRowIndex + 1,
+      message:
+        `${sheetName}: column names were found on row ${headerRowIndex + 1}, not row 1. ` +
+        `The ${headerRowIndex} row${headerRowIndex === 1 ? '' : 's'} above were read as notes.`,
+    });
+  }
+
+  // The example row, as the sheet's own instruction line names it.
+  const exampleRowNumber = exampleRowFromNotice(aoa, headerRowIndex);
+  let droppedExampleRows = 0;
+
+  const rows: RawRow[] = [];
+  for (let r = headerRowIndex + 1; r < aoa.length; r += 1) {
+    const raw = aoa[r] ?? [];
+    if (raw.every((c) => cellText(c) === '')) continue;
+
+    if (exampleRowNumber !== null && r + 1 === exampleRowNumber) {
+      droppedExampleRows += 1;
+      const id = cellText(raw[0]);
+      notes.push({
+        kind: 'example-row',
+        row: r + 1,
+        message:
+          `${sheetName}: row ${r + 1}${id ? ` (${id})` : ''} was dropped as the template's example ` +
+          `row, because row ${headerRowIndex} says "row ${exampleRowNumber} is an example". If that ` +
+          `was real data, delete the note above the column names and upload again.`,
+      });
+      continue;
+    }
+
+    const obj: RawRow = {};
+    header.forEach((h, c) => {
+      if (h === '') return;
+      obj[h] = raw[c] ?? '';
+    });
+    rows.push(obj);
+  }
+
+  return { rows, headerRowIndex, notes, droppedExampleRows };
 }
 
 /* ------------------------------------------------------------------ *
@@ -345,24 +480,48 @@ export function pickSheet(names: string[], candidates: string[]): string | undef
 }
 
 /** Parses an uploaded workbook entirely in the browser. */
-export async function parseWorkbook(data: ArrayBuffer): Promise<ParseResult> {
+export async function parseWorkbook(data: ArrayBuffer | Uint8Array): Promise<ParseResult> {
   const XLSX = await import('xlsx');
-  const wb = XLSX.read(data, { type: 'array', cellDates: true });
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const wb = XLSX.read(bytes, { type: 'array', cellDates: true });
   const names = wb.SheetNames;
   const bookingsName = pickSheet(names, BOOKINGS_SHEET_NAMES) ?? names[0];
   const itemsName = pickSheet(names, ITEMS_SHEET_NAMES) ?? names.find((n) => n !== bookingsName);
 
   const warnings: ParseWarning[] = [];
   if (!bookingsName) {
-    return { bookings: [], warnings: [{ kind: 'missing-sheet', message: 'This workbook has no sheets.' }], droppedExampleRows: 0 };
+    return {
+      bookings: [],
+      warnings: [{ kind: 'missing-sheet', message: 'This workbook has no sheets.' }],
+      droppedExampleRows: 0,
+    };
   }
-  const bookingRows = XLSX.utils.sheet_to_json<RawRow>(wb.Sheets[bookingsName], { defval: '', raw: false, dateNF: 'dd-mm-yyyy' });
-  const itemRows = itemsName
-    ? XLSX.utils.sheet_to_json<RawRow>(wb.Sheets[itemsName], { defval: '', raw: false, dateNF: 'dd-mm-yyyy' })
-    : [];
+
+  // Read as a grid so the header row can be found rather than assumed. The
+  // judges' template carries an instruction sentence above the column names.
+  const grid = (name: string): unknown[][] =>
+    XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], {
+      header: 1, defval: '', raw: false, blankrows: false, dateNF: 'dd-mm-yyyy',
+    });
+
+  const b = readSheet(grid(bookingsName), BOOKING_HEADERS, bookingsName);
+  const i = itemsName
+    ? readSheet(grid(itemsName), ITEM_HEADERS, itemsName)
+    : { rows: [] as RawRow[], headerRowIndex: 0, notes: [] as ParseWarning[], droppedExampleRows: 0 };
+
   if (!itemsName) {
-    warnings.push({ kind: 'missing-sheet', message: 'No Items sheet found. Bookings were loaded with no item lines, so the item level rules cannot run.' });
+    warnings.push({
+      kind: 'missing-sheet',
+      message:
+        'No Items sheet found. Bookings were loaded with no item lines, so the item level rules ' +
+        'cannot run.',
+    });
   }
-  const result = buildBookings(bookingRows, itemRows);
-  return { ...result, warnings: [...warnings, ...result.warnings] };
+
+  const result = buildBookings(b.rows, i.rows);
+  return {
+    ...result,
+    droppedExampleRows: result.droppedExampleRows + b.droppedExampleRows + i.droppedExampleRows,
+    warnings: [...warnings, ...b.notes, ...i.notes, ...result.warnings],
+  };
 }
