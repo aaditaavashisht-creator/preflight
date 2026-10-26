@@ -38,6 +38,9 @@ const TABS: Array<{ band: Band; label: string }> = [
 /** A share ramp, not a verdict scale — these bars say how much, not how bad. */
 const BARS = [c.textSoft, c.textMute, c.neutral, c.textFaint, c.borderRaised];
 
+/** How many of the worst bookings the side card names before it stops. */
+const PRIORITY_LIMIT = 4;
+
 const PILL: Record<Exclude<Band, 'all'>, { bg: string; fg: string }> = {
   blocked: { bg: c.failBg, fg: c.fail },
   caution: { bg: c.warnBg, fg: c.warn },
@@ -237,7 +240,7 @@ export default function ControlTower({
                         {s.riskGbp === null ? '—' : gbp(s.riskGbp)}
                       </Td>
                       <Td align="right">
-                        <Pill bg={PILL[band].bg} fg={PILL[band].fg}>
+                        <Pill bg={PILL[band].bg} fg={PILL[band].fg} nowrap>
                           {s.stage}
                         </Pill>
                       </Td>
@@ -322,7 +325,7 @@ export default function ControlTower({
                     gap: 12,
                   }}
                 >
-                  {book.priorities.map((p, i) => (
+                  {book.priorities.slice(0, PRIORITY_LIMIT).map((p, i) => (
                     <li key={p.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <span
                         style={{
@@ -349,6 +352,13 @@ export default function ControlTower({
                     </li>
                   ))}
                 </ol>
+                {book.priorities.length > PRIORITY_LIMIT && (
+                  <Footnote>
+                    {book.priorities.length - PRIORITY_LIMIT} more{' '}
+                    {book.priorities.length - PRIORITY_LIMIT === 1 ? 'booking needs' : 'bookings need'}{' '}
+                    work. They are all in the table.
+                  </Footnote>
+                )}
                 {onQueue && <Button onClick={onQueue}>Open the exception queue</Button>}
               </Card>
             )}

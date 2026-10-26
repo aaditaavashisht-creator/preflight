@@ -8,9 +8,9 @@
  */
 
 import { fmtDate, gbp } from './format';
-import { readiness } from './readiness';
-import { RULE_IDS, ruleStatuses, type RuleStatus } from './rules';
-import type { Booking, CheckResult } from './types';
+import { STAGES, readiness } from './readiness';
+import { RULE_IDS, RULES, itemCartonsOf, ruleStatuses, type RuleStatus } from './rules';
+import type { Booking, CheckResult, Issue } from './types';
 
 /** The screens' vocabulary for a single rule cell. */
 export type Verdict = 'pass' | 'fail' | 'warn' | 'na';
@@ -206,13 +206,15 @@ export function toBook(entries: Entry[], today: Date): Book {
 
   const issues = sorted.flatMap((e) => e.result.issues);
   const totalExposure = shipments.reduce((n, s) => n + (s.riskGbp ?? 0), 0);
-  const exposure = shipments.filter((s) => s.riskGbp !== null).map((s) => sliceOf(s, totalExposure));
+  const exposure = shipments
+    .filter((s) => s.riskGbp !== null)
+    .sort((a, z) => (z.riskGbp ?? 0) - (a.riskGbp ?? 0))
+    .map((s) => sliceOf(s, totalExposure));
 
   const topExposureId = exposure.length > 0 ? exposure[0].id : null;
   const priorities = sorted
     .map((e, i) => ({ e, s: shipments[i] }))
     .filter(({ s }) => bandOf(s) !== 'clear')
-    .slice(0, 3)
     .map(({ e, s }) => priorityOf(e, s, s.id === topExposureId));
 
   return {
@@ -230,4 +232,204 @@ export function toBook(entries: Entry[], today: Date): Book {
       ? `Nothing loaded yet, treated as ${fmtDate(today)}.`
       : `${plural(shipments.length, 'shipment', 'shipments')} in the book, treated as ${fmtDate(today)}. Worst first.`,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * The exception queue, the rule matrix and the warehouse task.
+ * Same discipline as above: these only reshape engine output.
+ * ------------------------------------------------------------------ */
+
+export interface Finding {
+  shipmentId: string;
+  /** Unique per finding, since one booking can fail several rules. */
+  key: string;
+  rule: string;
+  title: string;
+  found: string;
+  expected: string;
+  consequence: string;
+  diagnosis: string;
+  /** 'high' and 'medium' have a one-click fix; 'person' means a decision. */
+  confidence: 'high' | 'medium' | 'person';
+  fix: string;
+  fixNote: string;
+  /** What else is going on with the same booking. */
+  also?: string;
+  owner: string;
+  stage: string;
+  riskGbp: number;
+  stops: boolean;
+}
+
+const OWNER_OF: Record<string, string> = Object.fromEntries(
+  STAGES.flatMap((s) => s.rules.map((r) => [r, s.who])),
+);
+const STAGE_OF: Record<string, string> = Object.fromEntries(RULES.map((r) => [r.id, r.stage]));
+
+function consequenceOf(i: Issue): string {
+  const [lo, hi] = i.impactDays;
+  const time = hi === 0 ? '' : lo === hi ? `Up to ${hi} days` : `${lo} to ${hi} days held`;
+  const money = i.impactCost > 0 ? `about ${gbp(i.impactCost)} at risk` : '';
+  const head = [time, money].filter(Boolean).join(' and ');
+  return [head ? `${head}.` : '', i.costWhy].filter(Boolean).join(' ').trim();
+}
+
+function confidenceOf(i: Issue): Finding['confidence'] {
+  if (!i.fix) return 'person';
+  return i.confidence === 'High' ? 'high' : 'medium';
+}
+
+function alsoOf(i: Issue, all: Issue[]): string | undefined {
+  const others = all.filter((x) => x !== i);
+  if (others.length === 0) return undefined;
+  const reds = [...new Set(others.filter((x) => x.severity === 'Red').map((x) => x.rule))];
+  const ambers = [...new Set(others.filter((x) => x.severity === 'Amber').map((x) => x.rule))];
+  const bits: string[] = [];
+  if (reds.length) bits.push(`${reds.join(', ')} also ${reds.length === 1 ? 'blocks' : 'block'} this booking`);
+  if (ambers.length) bits.push(`${ambers.join(', ')} will cost time or money`);
+  return `${bits.join('. ')}.`;
+}
+
+/** Red before amber, then worst money first — the order you should work them. */
+export function toFindings(entries: Entry[]): Finding[] {
+  const out: Finding[] = entries.flatMap((e) =>
+    e.result.issues.map((i, n) => ({
+      shipmentId: e.booking.id,
+      key: `${e.booking.id}|${i.rule}|${i.sku ?? n}`,
+      rule: i.rule,
+      title: i.headline || i.title,
+      found: i.observed,
+      expected: i.expected,
+      consequence: consequenceOf(i),
+      diagnosis: i.diagnosis,
+      confidence: confidenceOf(i),
+      fix: i.fix ? i.fix.label : i.suggestion ? i.suggestion : 'Needs a person to decide',
+      fixNote: i.fix ? i.fix.delta : 'no safe one-click correction',
+      also: alsoOf(i, e.result.issues),
+      owner: OWNER_OF[i.rule] ?? 'Seller',
+      stage: STAGE_OF[i.rule] ?? '',
+      riskGbp: i.impactCost,
+      stops: i.severity === 'Red',
+    })),
+  );
+  return out.sort((a, z) => {
+    if (a.stops !== z.stops) return a.stops ? -1 : 1;
+    if (Math.abs(z.riskGbp - a.riskGbp) > 0.005) return z.riskGbp - a.riskGbp;
+    return a.key.localeCompare(z.key);
+  });
+}
+
+export interface QueueStats {
+  total: number;
+  /** Findings the engine will correct for you. */
+  oneClick: number;
+  /** Findings that need a decision. */
+  needsPerson: number;
+  bookings: number;
+  exposure: number;
+  /** Bookings with nothing firing at all, named. */
+  quiet: string[];
+}
+
+export function toQueueStats(findings: Finding[], shipments: Shipment[]): QueueStats {
+  return {
+    total: findings.length,
+    oneClick: findings.filter((f) => f.confidence !== 'person').length,
+    needsPerson: findings.filter((f) => f.confidence === 'person').length,
+    bookings: new Set(findings.map((f) => f.shipmentId)).size,
+    exposure: findings.reduce((n, f) => n + f.riskGbp, 0),
+    quiet: shipments.filter((s) => bandOf(s) === 'clear').map((s) => s.id),
+  };
+}
+
+/* ---------- the rule matrix ---------- */
+
+export interface RuleCard {
+  id: string;
+  /** Column label for the matrix — short enough to sit in a table head. */
+  short: string;
+  title: string;
+  why: string;
+  /** Red rules stop a shipment; amber ones cost time or money. */
+  stops: boolean;
+}
+
+/** Display labels only. The wording that carries meaning lives in RULES. */
+const SHORT: Record<string, string> = {
+  'R-01': 'HS code of at least 6 digits',
+  'R-02': 'Declared value matches item lines',
+  'R-03': 'Each line packs out',
+  'R-04': 'Carton totals agree',
+  'R-05': 'Pallet weight within a ceiling',
+  'R-06': 'No dangerous goods',
+  'R-07': 'Gross covers net',
+  'R-08': 'Warehouse slot booked',
+  'R-09': 'Country of origin present',
+  'R-10': 'Ready date not in the past',
+};
+
+export const RULE_CARDS: RuleCard[] = RULES.map((r) => ({
+  id: r.id,
+  short: SHORT[r.id] ?? r.name,
+  title: r.name,
+  why: r.description,
+  stops: r.severity === 'Red',
+}));
+
+export interface StageLoad {
+  name: string;
+  /** Bookings held at this stage. */
+  count: number;
+  owner: string;
+}
+
+/** Where the book is stuck, and who has to move it. */
+export function toStageLoad(entries: Entry[]): StageLoad[] {
+  const held = entries.map((e) => {
+    const statuses = ruleStatuses(e.booking, e.result.issues);
+    return readiness(e.booking, e.result.issues, statuses).heldAt?.name ?? null;
+  });
+  return STAGES.map((s) => ({
+    name: s.name,
+    count: held.filter((h) => h === s.name).length,
+    owner: s.who,
+  }));
+}
+
+/* ---------- the warehouse task ---------- */
+
+export interface CountTask {
+  id: string;
+  seller: string;
+  lane: string;
+  rule: string;
+  bookingSays: number;
+  linesSay: number;
+  riskGbp: number;
+  /** True when this count is the only thing left on the booking. */
+  onlyThing: boolean;
+}
+
+/**
+ * The one job a warehouse hand can finish on a phone: a carton count that
+ * does not reconcile. Returns null when no loaded booking has one.
+ */
+export function toCountTask(entries: Entry[]): CountTask | null {
+  for (const e of entries) {
+    const hit = e.result.issues.find((i) => i.rule === 'R-04');
+    if (!hit) continue;
+    const linesSay = itemCartonsOf(e.booking);
+    if (e.booking.cartons === null || linesSay === null) continue;
+    return {
+      id: e.booking.id,
+      seller: e.booking.seller.trim() || 'Seller not stated',
+      lane: lanesOf(e.booking),
+      rule: hit.rule,
+      bookingSays: e.booking.cartons,
+      linesSay,
+      riskGbp: hit.impactCost,
+      onlyThing: e.result.issues.length === 1,
+    };
+  }
+  return null;
 }

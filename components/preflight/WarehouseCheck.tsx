@@ -2,20 +2,21 @@
 
 import { useState } from 'react';
 import { c, font, tnum } from './tokens';
-import { bk101Count, gbp } from './fixtures.data';
+import { gbp } from '@/lib/format';
+import type { CountTask } from '@/lib/dashboard';
 
 /**
  * Screen 5 — Warehouse check.
  *
  * One task, phone-sized, for the person actually counting cartons. The
- * stepper is live: step to 96 and R-04 clears.
+ * stepper is live: step to the number the item lines add up to and the
+ * carton rule clears.
  *
- * Fixed 390x844 so it reads as a device frame. Drop the outer width/height
- * and it works as a responsive route.
+ * Phone-width, centred, so it reads as the device task it is.
  */
 
-export default function WarehouseCheck() {
-  const b = bk101Count;
+export default function WarehouseCheck({ task }: { task: CountTask }) {
+  const b = task;
   const [count, setCount] = useState(b.bookingSays);
 
   const verdict =
@@ -54,8 +55,10 @@ export default function WarehouseCheck() {
   return (
     <div
       style={{
-        width: 390,
-        height: 844,
+        width: '100%',
+        maxWidth: 390,
+        minHeight: 620,
+        margin: '0 auto',
         boxSizing: 'border-box',
         background: c.bg,
         color: c.text,
@@ -281,8 +284,9 @@ export default function WarehouseCheck() {
             Who else is waiting
           </span>
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: c.textMute }}>
-            Nothing else on {b.id} is holding. The other nine rules pass, so this count is the last
-            thing between the pallet and the road.
+            {b.onlyThing
+              ? `Nothing else on ${b.id} is holding. Every other rule passes, so this count is the last thing between the pallet and the road.`
+              : `Other rules are also holding ${b.id}, so clearing this count moves it on but does not release it on its own.`}
           </p>
         </div>
       </div>

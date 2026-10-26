@@ -399,6 +399,12 @@ select:focus-visible,
   min-width: 0;
 }
 
+/* The scrim belongs to the drawer, and the drawer only exists below 1440.
+   It is a child of the .workspace grid, so leaving it unstyled above that
+   width makes it an in-flow grid item that takes a column and shifts every
+   pane one cell to the right. */
+.drawer-scrim { display: none; }
+
 @media (max-width: 1439px) {
   .workspace { grid-template-columns: minmax(0, 1fr) var(--rail-w); }
   .col-queue {
@@ -407,13 +413,19 @@ select:focus-visible,
     width: min(320px, 88vw);
     z-index: 40;
     transform: translateX(-102%);
-    transition: transform .18s ease;
+    visibility: hidden;
+    transition: transform .18s ease, visibility 0s linear .18s;
     box-shadow: var(--shadow-card);
     max-height: none;
     height: calc(100dvh - var(--masthead-h));
   }
-  .col-queue[data-open="true"] { transform: translateX(0); }
+  .col-queue[data-open="true"] {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform .18s ease, visibility 0s;
+  }
   .drawer-scrim {
+    display: block;
     position: fixed;
     inset: var(--masthead-h) 0 0 0;
     background: rgba(15, 17, 22, .32);
@@ -429,6 +441,8 @@ select:focus-visible,
   .col-queue {
     position: static;
     transform: none;
+    visibility: visible;
+    transition: none;
     width: auto;
     height: auto;
     max-height: none;
@@ -1217,3 +1231,101 @@ select:focus-visible,
   overflow: hidden;
 }
 .risk-track > span { display: block; height: 100%; background: var(--sev); border-radius: 2px; }
+
+/* ==================================================================
+   The nav bar, and the empty states behind it.
+   ================================================================== */
+
+.masthead-brand {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  border-radius: var(--radius-chip);
+}
+.masthead-brand:hover p:first-child { text-decoration: underline; }
+
+.masthead-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Sits inside the masthead, so it inherits the brand ground and its ink. */
+.nav {
+  padding: 0 16px 9px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+
+.nav ul {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: max-content;
+}
+
+.nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: var(--radius-chip);
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: none;
+  opacity: .8;
+  white-space: nowrap;
+  transition: background-color .15s ease, opacity .15s ease;
+}
+.nav a:hover { background: rgba(255, 255, 255, .18); opacity: 1; }
+
+.nav a[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 1;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 17, 22, .14);
+}
+
+a.btn { text-decoration: none; color: var(--ink); }
+a.btn.btn-primary { color: #fff; }
+:root[data-theme="dark"] a.btn.btn-primary,
+:root:not([data-theme="light"]) a.btn.btn-primary { color: #1A0C06; }
+
+.nothing {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px;
+}
+.nothing .card { max-width: 580px; width: 100%; }
+
+/* The warehouse task is phone-sized on purpose. Framing it says so, rather
+   than letting it read as a column that failed to fill the page. */
+.phone-frame {
+  padding: 28px 16px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.phone-shell {
+  width: 100%;
+  max-width: 390px;
+  border: 1px solid var(--hairline);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+@media (max-width: 480px) {
+  .phone-frame { padding: 0 0 32px; }
+  .phone-shell { border: 0; border-radius: 0; box-shadow: none; max-width: none; }
+}

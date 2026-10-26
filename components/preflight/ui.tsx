@@ -198,10 +198,13 @@ export function Pill({
   children,
   bg,
   fg,
+  nowrap,
 }: {
   children: ReactNode;
   bg: string;
   fg: string;
+  /** Keep a short phrase on one line; two lines read as two pills. */
+  nowrap?: boolean;
 }) {
   return (
     <span
@@ -213,6 +216,7 @@ export function Pill({
         fontWeight: 500,
         background: bg,
         color: fg,
+        whiteSpace: nowrap ? 'nowrap' : undefined,
       }}
     >
       {children}

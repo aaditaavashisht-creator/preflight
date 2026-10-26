@@ -3,26 +3,33 @@
 import { useState } from 'react';
 import { c, font, tnum } from './tokens';
 import { Button, Card, Footnote, Page, PageHeader, Pill, RuleTag } from './ui';
-import { gbp, shipments, topFindings, totalExposure, type Finding } from './fixtures.data';
+import { gbp } from '@/lib/format';
+import type { Finding, QueueStats, Shipment } from '@/lib/dashboard';
 
 /**
  * Screen 2 — Exception queue.
  *
- * Inverts the live app: instead of browsing shipment by shipment, you work a
- * ranked list of findings. Four of the eleven are one-click corrections;
- * the rest need a person, and the screen says which is which.
+ * Inverts the dossier: instead of browsing shipment by shipment, you work a
+ * ranked list of findings, blockers first and worst money first inside that.
+ * Every figure comes from the engine by way of toFindings().
  */
+
+const EMPTY: Shipment = {
+  id: '', seller: '', lane: '', riskGbp: null, tally: '', stage: '', blocked: false, rules: [],
+};
 
 function QueueRow({
   finding,
+  shipment,
   selected,
   onSelect,
 }: {
   finding: Finding;
+  shipment: Shipment;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const s = shipments.find((x) => x.id === finding.shipmentId)!;
+  const s = shipment;
   const counts = s.rules.reduce(
     (acc, v) => {
       if (v === 'fail') acc.fail += 1;
@@ -60,7 +67,9 @@ function QueueRow({
           width: '100%',
         }}
       >
-        <span style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 600 }}>{s.id}</span>
+        <span style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 600 }}>
+          {s.id} <span style={{ color: c.textMute, fontWeight: 500 }}>{finding.rule}</span>
+        </span>
         <span
           style={{
             fontSize: 13,
@@ -69,7 +78,7 @@ function QueueRow({
             color: selected ? c.accent : c.textSoft,
           }}
         >
-          {gbp(s.riskGbp ?? 0)}
+          {gbp(finding.riskGbp)}
         </span>
       </span>
       <span
@@ -81,11 +90,14 @@ function QueueRow({
           marginTop: 4,
         }}
       >
-        {s.seller} · {s.lane}
+        {finding.title}
       </span>
       <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-        <Pill bg={c.accentBg} fg={c.accent}>
-          {counts.fail} blocking
+        <Pill bg={finding.stops ? c.failBg : c.warnBg} fg={finding.stops ? c.fail : c.warn} nowrap>
+          {finding.stops ? 'Stops the shipment' : 'Costs time or money'}
+        </Pill>
+        <Pill bg={c.panel2} fg={c.textMute} nowrap>
+          {counts.fail} blocking on {s.id}
         </Pill>
         {counts.warn > 0 ? (
           <Pill bg={c.warnBg} fg={c.warn}>
@@ -97,8 +109,8 @@ function QueueRow({
   );
 }
 
-function Detail({ f }: { f: Finding }) {
-  const s = shipments.find((x) => x.id === f.shipmentId)!;
+function Detail({ f, shipment }: { f: Finding; shipment: Shipment }) {
+  const s = shipment;
   const confFg = f.confidence === 'high' ? c.pass : c.warn;
   const confLabel =
     f.confidence === 'high'
@@ -278,19 +290,44 @@ function Detail({ f }: { f: Finding }) {
   );
 }
 
-export default function ExceptionQueue() {
-  const [pickedId, setPickedId] = useState(topFindings[0].shipmentId);
-  const picked = topFindings.find((f) => f.shipmentId === pickedId)!;
+export default function ExceptionQueue({
+  findings,
+  shipments,
+  stats,
+  onDownload,
+  onApplyAll,
+}: {
+  findings: Finding[];
+  shipments: Shipment[];
+  stats: QueueStats;
+  onDownload?: () => void;
+  onApplyAll?: () => void;
+}) {
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const picked = findings.find((f) => f.key === pickedKey) ?? findings[0] ?? null;
+  const shipmentOf = (id: string) => shipments.find((x) => x.id === id) ?? EMPTY;
+
+  const quiet = stats.quiet;
 
   return (
     <Page>
       <PageHeader
         title="Exception queue"
-        blurb="Eleven findings across four bookings, worst money first. Work the list, not the shipments."
+        blurb={
+          findings.length === 0
+            ? 'Nothing is firing on the bookings you have loaded.'
+            : `${stats.total} ${stats.total === 1 ? 'finding' : 'findings'} across ${stats.bookings} ${stats.bookings === 1 ? 'booking' : 'bookings'}, blockers first. Work the list, not the shipments.`
+        }
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Button variant="ghost">Download corrected sheet</Button>
-          <Button>Apply 4 high-confidence fixes</Button>
+          {onDownload && (
+            <Button variant="ghost" onClick={onDownload}>Download corrected sheet</Button>
+          )}
+          {onApplyAll && stats.oneClick > 0 && (
+            <Button onClick={onApplyAll}>
+              Apply {stats.oneClick} one-click {stats.oneClick === 1 ? 'fix' : 'fixes'}
+            </Button>
+          )}
         </div>
       </PageHeader>
 
@@ -308,13 +345,13 @@ export default function ExceptionQueue() {
           }}
         >
           <span style={{ fontSize: 24, fontWeight: 700, color: c.fail, ...tnum }}>
-            {gbp(totalExposure)}
+            {gbp(stats.exposure)}
           </span>
           <span style={{ fontSize: 13, color: c.alertText }}>held up right now</span>
         </div>
         {[
-          { n: '4', t: 'are one-click corrections' },
-          { n: '7', t: 'need a person to decide' },
+          { n: stats.oneClick, t: stats.oneClick === 1 ? 'is a one-click correction' : 'are one-click corrections' },
+          { n: stats.needsPerson, t: stats.needsPerson === 1 ? 'needs a person to decide' : 'need a person to decide' },
         ].map((x) => (
           <div
             key={x.t}
@@ -335,28 +372,44 @@ export default function ExceptionQueue() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 380px', minWidth: 0 }}>
-          <Card style={{ padding: '20px 10px 14px', gap: 4 }}>
-            <h2 style={{ margin: '0 14px 10px', fontSize: 17, fontWeight: 600 }}>Queue</h2>
-            {topFindings.map((f) => (
-              <QueueRow
-                key={f.shipmentId}
-                finding={f}
-                selected={f.shipmentId === pickedId}
-                onSelect={() => setPickedId(f.shipmentId)}
-              />
-            ))}
-            <div style={{ margin: '10px 14px 0' }}>
-              <Footnote>BK-105, Harrow Home, is not in the queue. All ten rules pass.</Footnote>
-            </div>
-          </Card>
-        </div>
+      {findings.length === 0 ? (
+        <Card>
+          <p style={{ margin: 0, fontSize: 14, color: c.textSoft }}>
+            {shipments.length === 0
+              ? 'Nothing is loaded. Open a shipment or load the demo set and the findings land here.'
+              : 'Every rule passes on every booking in the book. There is nothing to work.'}
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'flex-start' }}>
+          <div style={{ flex: '1 1 380px', minWidth: 0 }}>
+            <Card style={{ padding: '20px 10px 14px', gap: 4 }}>
+              <h2 style={{ margin: '0 14px 10px', fontSize: 17, fontWeight: 600 }}>Queue</h2>
+              {findings.map((f) => (
+                <QueueRow
+                  key={f.key}
+                  finding={f}
+                  shipment={shipmentOf(f.shipmentId)}
+                  selected={picked !== null && f.key === picked.key}
+                  onSelect={() => setPickedKey(f.key)}
+                />
+              ))}
+              {quiet.length > 0 && (
+                <div style={{ margin: '10px 14px 0' }}>
+                  <Footnote>
+                    {quiet.join(', ')} {quiet.length === 1 ? 'is' : 'are'} not in the queue.
+                    Every rule passes.
+                  </Footnote>
+                </div>
+              )}
+            </Card>
+          </div>
 
-        <div style={{ flex: '999 1 560px', minWidth: 0 }}>
-          <Detail f={picked} />
+          <div style={{ flex: '999 1 560px', minWidth: 0 }}>
+            {picked && <Detail f={picked} shipment={shipmentOf(picked.shipmentId)} />}
+          </div>
         </div>
-      </div>
+      )}
     </Page>
   );
 }

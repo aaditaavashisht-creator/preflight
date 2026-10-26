@@ -9,22 +9,32 @@ import {
   TableScroll,
   TileGrid,
 } from './ui';
-import { rules, shipments, stageLoad } from './fixtures.data';
+import type { Finding, RuleCard, Shipment, StageLoad } from '@/lib/dashboard';
 
 /**
  * Screen 3 — Rule and lane health.
  *
  * Every rule against every booking. The point of the matrix is the two
- * readings you cannot get from a per-shipment view: R-04 is the only rule
- * firing twice, and Paperwork clear holds half the blocked bookings.
+ * readings you cannot get from a per-shipment view: which rule bites most
+ * often, and which stage is holding the book up.
  *
  * Static — no client state, so this can stay a server component.
  */
 
-const blockedCount = shipments.filter((s) => s.blocked).length;
+export default function RuleHealth({
+  shipments,
+  rules,
+  stageLoad,
+  findings,
+}: {
+  shipments: Shipment[];
+  rules: RuleCard[];
+  stageLoad: StageLoad[];
+  findings: Finding[];
+}) {
+  const blockedCount = shipments.filter((s) => s.blocked).length;
 
-export default function RuleHealth() {
-  // Each rule's row across the five bookings, in the order they are listed.
+  // Each rule's row across the book, in the order the rules are listed.
   const matrix = rules.map((rule, ruleIndex) => {
     const cells = shipments.map((s) => s.rules[ruleIndex]);
     const hits = cells.filter((v) => v === 'fail' || v === 'warn').length;
@@ -35,33 +45,51 @@ export default function RuleHealth() {
   const quiet = matrix.filter((m) => m.hits === 0).map((m) => m.rule.id);
 
   const maxStage = Math.max(...stageLoad.map((s) => s.count), 1);
+  const stops = findings.filter((f) => f.stops).length;
+  const costs = findings.length - stops;
+  const redRules = rules.filter((r) => r.stops).length;
+  const amberRules = rules.length - redRules;
+  const naCells = matrix.reduce((n, m) => n + m.cells.filter((v) => v === 'na').length, 0);
+  const heldTotal = stageLoad.reduce((n, s) => n + s.count, 0);
+  const heldStages = stageLoad.filter((s) => s.count > 0).length;
+  const worstStage = stageLoad.reduce<StageLoad | null>(
+    (best, s) => (s.count > 0 && (!best || s.count > best.count) ? s : best),
+    null,
+  );
+  const busiest = matrix.reduce(
+    (best, m) => (m.hits > best.hits ? m : best),
+    { rule: { id: '—' }, hits: 0 } as { rule: { id: string }; hits: number },
+  );
 
   return (
     <Page>
       <PageHeader
         title="Rule and lane health"
-        blurb="Ten rules against five bookings. Which checks actually bite, and which stage holds the book up."
+        blurb={`${rules.length} rules against ${shipments.length} ${shipments.length === 1 ? 'booking' : 'bookings'}. Which checks actually bite, and which stage holds the book up.`}
       />
 
       <TileGrid>
-        <StatTile label="Findings" value="11" note={`across ${rules.length * shipments.length} rule runs`} />
+        <StatTile
+          label="Findings"
+          value={String(findings.length)}
+          note={`across ${rules.length * shipments.length} rule runs`}
+        />
         <StatTile
           label="Stop a shipment"
-          value="7"
-          note="from the six red rules"
+          value={String(stops)}
+          note={`from the ${redRules} red rules`}
           valueColor={c.fail}
         />
         <StatTile
           label="Cost time or money"
-          value="4"
-          note="from the four amber rules"
+          value={String(costs)}
+          note={`from the ${amberRules} amber rules`}
           valueColor={c.warn}
         />
         <StatTile
           label="Fires most"
-          value="R-04"
-          note="the only rule to hit twice"
-          valueColor={c.accent}
+          value={busiest.hits === 0 ? '—' : busiest.rule.id}
+          note={busiest.hits === 0 ? 'nothing fired on this book' : `hit ${busiest.hits} ${busiest.hits === 1 ? 'time' : 'times'}`}
           mono
         />
       </TileGrid>
@@ -222,8 +250,9 @@ export default function RuleHealth() {
             </TableScroll>
 
             <Footnote>
-              R-08 reads n/a on BK-104: it delivers to a business address, not a warehouse, so no
-              slot is needed.
+              {naCells === 0
+                ? 'Every rule could be tested against every booking.'
+                : `${naCells} ${naCells === 1 ? 'cell reads' : 'cells read'} n/a: the rule does not apply to that booking, so it was never run. A grey cell is not a pass.`}
             </Footnote>
           </Card>
         </div>
@@ -240,7 +269,9 @@ export default function RuleHealth() {
           <Card>
             <CardHeader title="Which stage holds the book" />
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: c.textSoft }}>
-              Half the blocked bookings never get past paperwork. That is where to put the effort.
+              {worstStage
+                ? `${worstStage.name} holds ${worstStage.count} of the ${heldTotal} held ${heldTotal === 1 ? 'booking' : 'bookings'}. That is where to put the effort.`
+                : 'Nothing in the book is held at any stage.'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
               {stageLoad.map((s) => {
@@ -280,14 +311,20 @@ export default function RuleHealth() {
                 );
               })}
             </div>
-            <Footnote>{blockedCount} blocked bookings, spread across three stages.</Footnote>
+            <Footnote>
+              {blockedCount} blocked {blockedCount === 1 ? 'booking' : 'bookings'}
+              {heldStages === 0
+                ? '.'
+                : `, and ${heldTotal} held in total across ${heldStages} ${heldStages === 1 ? 'stage' : 'stages'}.`}
+            </Footnote>
           </Card>
 
           <Card>
             <CardHeader title="Quiet rules" />
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: c.textSoft }}>
-              {quiet.length} of the ten never fired on this book. They are not dead weight, they
-              are the ones your sellers already get right.
+              {quiet.length === 0
+                ? `Every one of the ${rules.length} fired at least once on this book. Nothing here is idle.`
+                : `${quiet.length} of the ${rules.length} never fired on this book. They are not dead weight, they are the ones your sellers already get right.`}
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {quiet.map((id) => (

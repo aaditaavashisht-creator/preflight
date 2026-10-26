@@ -262,14 +262,14 @@ export default function Landing({ startHref = '/app', onStart }: LandingProps) {
           Pre-Flight
         </span>
         <span className="pf-nav-links pf-rise pf-d1">
-          <a className="pf-nav-link" href="#how">
-            How it works
+          <a className="pf-nav-link" href="/control-tower#demo">
+            The whole book
           </a>
-          <a className="pf-nav-link" href="#rules">
+          <a className="pf-nav-link" href="/rules#demo">
             The ten rules
           </a>
-          <a className="pf-nav-link" href="#start">
-            Sign in
+          <a className="pf-nav-link" href="/exceptions#demo">
+            What is firing
           </a>
         </span>
       </nav>
@@ -326,7 +326,7 @@ export default function Landing({ startHref = '/app', onStart }: LandingProps) {
               {startContent}
             </a>
           )}
-          <a className="pf-secondary" href="#how">
+          <a className="pf-secondary" href="/app#demo">
             See a worked example
           </a>
         </div>

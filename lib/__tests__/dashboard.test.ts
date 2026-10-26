@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { bandOf, toBook, toShipment, type Entry } from '../dashboard';
+import {
+  RULE_CARDS, bandOf, toBook, toCountTask, toFindings, toQueueStats, toShipment, toStageLoad,
+  type Entry,
+} from '../dashboard';
 import { blankBooking, makeFixtures } from '../fixtures';
-import { RULE_IDS, check } from '../rules';
+import { RULE_IDS, RULES, check } from '../rules';
 import type { Booking } from '../types';
 
 const TODAY = new Date(2026, 5, 1); // 1 June 2026
@@ -122,9 +125,9 @@ describe('the prose is generated, not written in', () => {
     expect(b.moneyBlurb).toContain('BK-102');
   });
 
-  it('lists the worst three bookings to act on, worst first', () => {
+  it('lists the bookings to act on, worst first', () => {
     const b = book();
-    expect(b.priorities.map((p) => p.id)).toEqual(['BK-102', 'BK-103', 'BK-101']);
+    expect(b.priorities.map((p) => p.id)).toEqual(['BK-102', 'BK-103', 'BK-101', 'BK-104']);
     expect(b.priorities[0].why).toContain('3 blocking rules');
     expect(b.priorities[0].why).toContain('largest single exposure');
     expect(b.priorities[2].why).toContain('1 blocking rule');
@@ -154,5 +157,131 @@ describe('the prose is generated, not written in', () => {
 
   it('dates the blurb off the day the check was run against', () => {
     expect(book().blurb).toBe('5 shipments in the book, treated as 01-06-2026. Worst first.');
+  });
+});
+
+describe('the exception queue', () => {
+  const findings = () => toFindings(demo());
+
+  it('carries one entry per issue, not one per booking', () => {
+    const all = demo().flatMap((e) => e.result.issues);
+    expect(findings()).toHaveLength(all.length);
+    expect(new Set(findings().map((f) => f.key)).size).toBe(all.length);
+  });
+
+  it('puts the blockers first, then the dearest', () => {
+    const fs = findings();
+    const lastStop = fs.map((f) => f.stops).lastIndexOf(true);
+    const firstCost = fs.map((f) => f.stops).indexOf(false);
+    expect(lastStop).toBeLessThan(firstCost === -1 ? Infinity : firstCost);
+    const stops = fs.filter((f) => f.stops).map((f) => f.riskGbp);
+    expect([...stops].sort((a, z) => z - a)).toEqual(stops);
+  });
+
+  it('says a person has to decide when the engine offers no fix', () => {
+    const dg = findings().find((f) => f.rule === 'R-06');
+    expect(dg).toBeDefined();
+    expect(dg!.confidence).toBe('person');
+    expect(dg!.fixNote).toBe('no safe one-click correction');
+  });
+
+  it('names the owner and the stage from the readiness pipeline', () => {
+    const hs = findings().find((f) => f.rule === 'R-01')!;
+    expect(hs.stage).toBe('Paperwork clear');
+    expect(hs.owner).toBe('Seller, or their customs broker');
+  });
+
+  it('tells a finding what else is holding its booking', () => {
+    const fs = findings();
+    const bk102 = fs.filter((f) => f.shipmentId === 'BK-102');
+    expect(bk102.length).toBeGreaterThan(1);
+    expect(bk102[0].also).toBeTruthy();
+    const solo = fs.find((f) => f.shipmentId === 'BK-101')!;
+    expect(solo.also).toBeUndefined();
+  });
+
+  it('counts the one-click fixes apart from the decisions', () => {
+    const fs = findings();
+    const stats = toQueueStats(fs, toBook(demo(), TODAY).shipments);
+    expect(stats.total).toBe(fs.length);
+    expect(stats.oneClick + stats.needsPerson).toBe(stats.total);
+    expect(stats.exposure).toBeCloseTo(fs.reduce((n, f) => n + f.riskGbp, 0), 2);
+    expect(stats.quiet).toEqual(['BK-105']);
+  });
+
+  it('is empty, not broken, when nothing is loaded', () => {
+    expect(toFindings([])).toEqual([]);
+    const stats = toQueueStats([], []);
+    expect(stats).toMatchObject({ total: 0, oneClick: 0, needsPerson: 0, bookings: 0, exposure: 0 });
+  });
+});
+
+describe('the rule matrix', () => {
+  it('offers a card for every rule, in rule order, with the rulebook wording', () => {
+    expect(RULE_CARDS.map((r) => r.id)).toEqual(RULE_IDS);
+    for (const card of RULE_CARDS) {
+      const meta = RULES.find((r) => r.id === card.id)!;
+      expect(card.title).toBe(meta.name);
+      expect(card.why).toBe(meta.description);
+      expect(card.stops).toBe(meta.severity === 'Red');
+      expect(card.short.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('loads each stage with the bookings actually held there', () => {
+    const load = toStageLoad(demo());
+    expect(load.map((s) => s.name)).toEqual([
+      'Declared', 'Paperwork clear', 'Counts agree', 'Freight accepted', 'Ready for collection',
+    ]);
+    const held = toBook(demo(), TODAY).shipments.filter((s) => s.stage !== 'Clear').length;
+    expect(load.reduce((n, s) => n + s.count, 0)).toBe(held);
+    expect(load.find((s) => s.name === 'Paperwork clear')!.count).toBe(2);
+    expect(load.find((s) => s.name === 'Counts agree')!.owner).toBe('Whoever packed the cartons');
+  });
+});
+
+describe('the warehouse count task', () => {
+  it('finds the booking whose cartons do not reconcile', () => {
+    const task = toCountTask(demo());
+    expect(task).not.toBeNull();
+    expect(task!.rule).toBe('R-04');
+    expect(task!.bookingSays).not.toBe(task!.linesSay);
+  });
+
+  it('says whether the count is the last thing holding the booking', () => {
+    const task = toCountTask(demo())!;
+    const booking = makeFixtures(TODAY).find((b) => b.id === task.id)!;
+    expect(task.onlyThing).toBe(check(booking, TODAY).issues.length === 1);
+  });
+
+  it('returns nothing when no booking has a carton dispute', () => {
+    const clean = makeFixtures(TODAY).filter((b) => b.id === 'BK-105');
+    expect(toCountTask(entries(clean))).toBeNull();
+    expect(toCountTask([])).toBeNull();
+  });
+});
+
+describe('the exposure split', () => {
+  it('orders the slices by money, not by severity rank', () => {
+    const amounts = book().exposure.map((e) => e.amount);
+    expect([...amounts].sort((a, z) => z - a)).toEqual(amounts);
+  });
+
+  it('names the dearest booking in the blurb even when a cheaper one is worse', () => {
+    // An amber-only booking carrying more money than every blocked one.
+    const bs = makeFixtures(TODAY);
+    const rich = bs.find((b) => b.id === 'BK-105')!;
+    rich.appointment = 'No';
+    rich.destType = 'Warehouse';
+    rich.grossWeight = 1; // gross under net, an amber with a cost
+    const b = toBook(entries(bs), TODAY);
+    const dearest = [...b.shipments].sort((x, z) => (z.riskGbp ?? 0) - (x.riskGbp ?? 0))[0];
+    expect(b.exposure[0].id).toBe(dearest.id);
+  });
+
+  it('lists every booking that needs work, with no silent cap', () => {
+    const b = book();
+    const needsWork = b.shipments.filter((s) => bandOf(s) !== 'clear').length;
+    expect(b.priorities).toHaveLength(needsWork);
   });
 });
