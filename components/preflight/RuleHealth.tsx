@@ -21,6 +21,14 @@ import type { Finding, RuleCard, Shipment, StageLoad } from '@/lib/dashboard';
  * Static — no client state, so this can stay a server component.
  */
 
+/** What a cell means, said out loud for anyone who cannot see its colour. */
+const VERDICT_WORD: Record<string, string> = {
+  pass: 'passes',
+  fail: 'fails, and stops the shipment',
+  warn: 'fires, and costs time or money',
+  na: 'not applicable, never run',
+};
+
 export default function RuleHealth({
   shipments,
   rules,
@@ -72,7 +80,7 @@ export default function RuleHealth({
         <StatTile
           label="Findings"
           value={String(findings.length)}
-          note={`across ${rules.length * shipments.length} rule runs`}
+          note={`across ${rules.length * shipments.length - naCells} rule runs`}
         />
         <StatTile
           label="Stop a shipment"
@@ -126,7 +134,7 @@ export default function RuleHealth({
               }
             />
 
-            <TableScroll min={580}>
+            <TableScroll label="Every rule against every booking" min={580}>
               <thead>
                 <tr>
                   <th
@@ -230,6 +238,9 @@ export default function RuleHealth({
                             background: verdictColor[v],
                           }}
                         />
+                        <span className="sr-only">
+                          {`${rule.id} on ${shipments[i].id}: ${VERDICT_WORD[v]}`}
+                        </span>
                       </td>
                     ))}
                     <td

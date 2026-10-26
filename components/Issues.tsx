@@ -22,7 +22,10 @@ export function RuleTag({ rule }: { rule: string }) {
     <span
       className="rule-tag t-mono"
       tabIndex={0}
+      role="note"
+      aria-label={meta ? `${meta.id}. ${meta.name}. ${meta.description}` : rule}
       title={meta ? `${meta.id} — ${meta.name}.\n\n${meta.description}` : rule}
+      data-tip={meta ? `${meta.name}. ${meta.description}` : undefined}
     >
       {rule}
     </span>

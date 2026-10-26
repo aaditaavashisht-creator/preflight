@@ -25,6 +25,7 @@ export function Workspace() {
 
   return (
     <>
+      <h1 className="sr-only">Check a shipment</h1>
       <nav className="segmented" aria-label="Panes">
         <button type="button" aria-pressed={pane === 'queue'} onClick={() => setPane('queue')}>Shipments</button>
         <button type="button" aria-pressed={pane === 'check'} onClick={() => setPane('check')}>Check</button>

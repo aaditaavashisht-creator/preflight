@@ -12,6 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <BookingsProvider>
       <div className="shell">
+        <a className="skip-link" href="#content">Skip to the content</a>
         <Masthead />
         {children}
       </div>

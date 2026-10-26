@@ -1128,6 +1128,29 @@ select:focus-visible,
 }
 .rule-tag:hover, .rule-tag:focus-visible { color: var(--ink); border-color: var(--ink-2); }
 
+/* The browser's own title tooltip never appears on keyboard focus, so the
+   rule text would have been mouse-only. This one opens either way. */
+.rule-tag { position: relative; }
+.rule-tag[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: max-content;
+  max-width: min(320px, 70vw);
+  padding: 10px 12px;
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  color: var(--ink-2);
+  font: 400 12px/1.5 var(--font-geist-sans, system-ui), sans-serif;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+
 .fix-all {
   display: flex;
   align-items: center;
@@ -1381,3 +1404,31 @@ a.btn.btn-primary { color: #fff; }
   background: var(--brand);
 }
 .masthead-brand .t-section { font-weight: 650; }
+
+/* Straight to the content, for anyone arriving by keyboard. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 60;
+  padding: 10px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top .15s ease;
+}
+.skip-link:focus-visible { top: 8px; }
+
+/* The nav scrolls at phone width; say so at the edge rather than just
+   clipping the last word. */
+@media (max-width: 720px) {
+  .nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .nav ul { padding-right: 28px; }
+}

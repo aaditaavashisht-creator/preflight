@@ -28,6 +28,12 @@ export function Masthead() {
   const pathname = usePathname().replace(/\/+$/, '') || '/';
   const masthead = useRef<HTMLElement>(null);
 
+  // The drawer belongs to /app, and its toggle only renders there. Leaving it
+  // open and navigating away would strand a scrim nothing could dismiss.
+  useEffect(() => {
+    if (pathname !== '/app') setDrawer(false);
+  }, [pathname, setDrawer]);
+
   // The masthead wraps on narrow screens, so the sticky columns have to learn
   // its real height rather than assume one.
   useEffect(() => {
@@ -57,7 +63,7 @@ export function Masthead() {
           </button>
         )}
 
-        <Link href="/" className="masthead-brand" style={{ minWidth: 0 }}>
+        <Link href="/app" className="masthead-brand" style={{ minWidth: 0 }}>
           <span className="brand-dot" aria-hidden="true" />
           <span style={{ minWidth: 0 }}>
             <p className="t-section" style={{ letterSpacing: '-.01em' }}>Pre-flight</p>

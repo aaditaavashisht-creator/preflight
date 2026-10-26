@@ -280,7 +280,7 @@ export default function Landing({ startHref = '/app', onStart }: LandingProps) {
         </span>
 
         <h1 className="pf-rise pf-d2">
-          <span className="pf-line">Catch it before</span>
+          <span className="pf-line">Catch it before</span>{' '}
           <span className="pf-line pf-clay">it ships.</span>
         </h1>
 

@@ -1,0 +1,52 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
+import { useSession } from '@/components/BookingsProvider';
+import { NothingLoaded } from '@/components/NothingLoaded';
+import WarehouseCheck from '@/components/preflight/WarehouseCheck';
+import { toCountTask } from '@/lib/dashboard';
+
+export function WarehouseScreen() {
+  const { entries, loaded, mutate } = useSession();
+  const router = useRouter();
+  const task = useMemo(() => toCountTask(entries), [entries]);
+
+  if (!loaded) return <NothingLoaded what="The warehouse check" />;
+
+  /* The screen is one job. With no carton count in dispute there is no job. */
+  if (!task) {
+    return (
+      <main id="content" className="nothing">
+        <div className="card empty">
+          <h1 className="t-section">No count to settle</h1>
+          <p className="t-body prose" style={{ marginTop: 8 }}>
+            This screen is for one job: a booking whose carton total does not match its item lines.
+            Nothing in the book has one right now, so there is nothing for the warehouse to count.
+          </p>
+          <div className="empty-actions">
+            <Link className="btn" href="/exceptions">See what is firing instead</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main id="content" className="phone-frame">
+      <h1 className="sr-only">Warehouse check</h1>
+      <p className="t-small muted prose" style={{ textAlign: 'center', maxWidth: 440 }}>
+        One job, sized for the person actually counting. Step the number to what is on the pallet
+        and the carton rule settles there and then.
+      </p>
+      <div className="phone-shell">
+        <WarehouseCheck
+          task={task}
+          onConfirm={(cartons) => mutate(task.id, (b) => { b.cartons = cartons; })}
+          onEscalate={() => router.push('/exceptions')}
+        />
+      </div>
+    </main>
+  );
+}

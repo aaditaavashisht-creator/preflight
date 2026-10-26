@@ -1,25 +1,11 @@
-'use client';
+import type { Metadata } from 'next';
+import { ExceptionsScreen } from '@/components/screens/ExceptionsScreen';
 
-import { useMemo } from 'react';
-import { useSession } from '@/components/BookingsProvider';
-import { NothingLoaded } from '@/components/NothingLoaded';
-import ExceptionQueue from '@/components/preflight/ExceptionQueue';
-import { toFindings, toQueueStats } from '@/lib/dashboard';
+export const metadata: Metadata = {
+  title: 'Exception queue — Pre-Flight',
+  description: 'Every finding across the book, blockers first and worst money first, with the field that is wrong and what to put there instead.',
+};
 
 export default function Page() {
-  const { entries, book, loaded, downloadCorrected, applyAllAcrossBook } = useSession();
-  const findings = useMemo(() => toFindings(entries), [entries]);
-  const stats = useMemo(() => toQueueStats(findings, book.shipments), [findings, book.shipments]);
-
-  if (!loaded) return <NothingLoaded what="The exception queue" />;
-
-  return (
-    <ExceptionQueue
-      findings={findings}
-      shipments={book.shipments}
-      stats={stats}
-      onDownload={downloadCorrected}
-      onApplyAll={applyAllAcrossBook}
-    />
-  );
+  return <ExceptionsScreen />;
 }

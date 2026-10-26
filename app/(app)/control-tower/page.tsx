@@ -1,21 +1,11 @@
-'use client';
+import type { Metadata } from 'next';
+import { ControlTowerScreen } from '@/components/screens/ControlTowerScreen';
 
-import { useRouter } from 'next/navigation';
-import { useSession } from '@/components/BookingsProvider';
-import { NothingLoaded } from '@/components/NothingLoaded';
-import ControlTower from '@/components/preflight/ControlTower';
+export const metadata: Metadata = {
+  title: 'Control tower — Pre-Flight',
+  description: 'Every loaded booking at once: what is blocked, what it is costing, and which stage is holding it.',
+};
 
 export default function Page() {
-  const { book, loaded, select } = useSession();
-  const router = useRouter();
-
-  if (!loaded) return <NothingLoaded what="The control tower" />;
-
-  return (
-    <ControlTower
-      book={book}
-      onOpen={(id) => { select(id); router.push('/app'); }}
-      onQueue={() => router.push('/exceptions')}
-    />
-  );
+  return <ControlTowerScreen />;
 }

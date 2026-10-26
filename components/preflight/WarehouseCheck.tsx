@@ -15,9 +15,26 @@ import type { CountTask } from '@/lib/dashboard';
  * Phone-width, centred, so it reads as the device task it is.
  */
 
-export default function WarehouseCheck({ task }: { task: CountTask }) {
+export default function WarehouseCheck({
+  task,
+  onConfirm,
+  onEscalate,
+}: {
+  task: CountTask;
+  /** Writes the counted number back to the booking and re-runs the rules. */
+  onConfirm?: (cartons: number) => void;
+  /** The count is not the problem; hand it to whoever works the whole list. */
+  onEscalate?: () => void;
+}) {
   const b = task;
   const [count, setCount] = useState(b.bookingSays);
+
+  // A different task means a fresh count, not the one left on screen.
+  const [taskId, setTaskId] = useState(b.id);
+  if (taskId !== b.id) {
+    setTaskId(b.id);
+    setCount(b.bookingSays);
+  }
 
   const verdict =
     count === b.linesSay
@@ -242,8 +259,11 @@ export default function WarehouseCheck({ task }: { task: CountTask }) {
               fontFamily: 'inherit',
               cursor: 'pointer',
             }}
+            onClick={() => onConfirm?.(count)}
           >
-            Confirm the count
+            {count === b.bookingSays
+              ? 'Confirm the count'
+              : `Send ${count} back to the booking`}
           </button>
           <button
             type="button"
@@ -258,6 +278,7 @@ export default function WarehouseCheck({ task }: { task: CountTask }) {
               fontFamily: 'inherit',
               cursor: 'pointer',
             }}
+            onClick={onEscalate}
           >
             Something else is wrong
           </button>

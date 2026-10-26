@@ -1,24 +1,11 @@
-'use client';
+import type { Metadata } from 'next';
+import { RulesScreen } from '@/components/screens/RulesScreen';
 
-import { useMemo } from 'react';
-import { useSession } from '@/components/BookingsProvider';
-import { NothingLoaded } from '@/components/NothingLoaded';
-import RuleHealth from '@/components/preflight/RuleHealth';
-import { RULE_CARDS, toFindings, toStageLoad } from '@/lib/dashboard';
+export const metadata: Metadata = {
+  title: 'Rule and lane health — Pre-Flight',
+  description: 'Every rule against every booking: which checks actually bite, and which stage is holding the book up.',
+};
 
 export default function Page() {
-  const { entries, book, loaded } = useSession();
-  const findings = useMemo(() => toFindings(entries), [entries]);
-  const stageLoad = useMemo(() => toStageLoad(entries), [entries]);
-
-  if (!loaded) return <NothingLoaded what="The rule matrix" />;
-
-  return (
-    <RuleHealth
-      shipments={book.shipments}
-      rules={RULE_CARDS}
-      stageLoad={stageLoad}
-      findings={findings}
-    />
-  );
+  return <RulesScreen />;
 }

@@ -136,7 +136,11 @@ function Detail({ f, shipment }: { f: Finding; shipment: Shipment }) {
             {s.id} · {s.seller} · {s.lane}
           </span>
         </div>
-        <RuleTag id={f.rule} fg={c.fail} bg={c.failBg} />
+        <RuleTag
+          id={f.rule}
+          fg={f.stops ? c.fail : c.warn}
+          bg={f.stops ? c.failBg : c.warnBg}
+        />
       </div>
 
       <div
@@ -279,7 +283,7 @@ function Detail({ f, shipment }: { f: Finding; shipment: Shipment }) {
               textTransform: 'uppercase',
             }}
           >
-            Held at
+            Clears at
           </span>
           <Pill bg={c.accentBg} fg={c.accent}>
             {f.stage}
@@ -398,7 +402,7 @@ export default function ExceptionQueue({
                 <div style={{ margin: '10px 14px 0' }}>
                   <Footnote>
                     {quiet.join(', ')} {quiet.length === 1 ? 'is' : 'are'} not in the queue.
-                    Every rule passes.
+                    Nothing is firing.
                   </Footnote>
                 </div>
               )}

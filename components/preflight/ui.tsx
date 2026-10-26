@@ -12,7 +12,8 @@ import { c, font, tnum } from './tokens';
 
 export function Page({ children }: { children: ReactNode }) {
   return (
-    <div
+    <main
+      id="content"
       style={{
         width: '100%',
         boxSizing: 'border-box',
@@ -26,7 +27,7 @@ export function Page({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </div>
+    </main>
   );
 }
 
@@ -329,10 +330,22 @@ export function Td({
   );
 }
 
-/** Wide tables scroll inside their card rather than blowing out the page. */
-export function TableScroll({ children, min = 620 }: { children: ReactNode; min?: number }) {
+/**
+ * Wide tables scroll inside their card rather than blowing out the page.
+ * Focusable, because a region that scrolls and cannot be reached by keyboard
+ * hides its own columns from anyone without a pointer.
+ */
+export function TableScroll({
+  children,
+  min = 620,
+  label,
+}: {
+  children: ReactNode;
+  min?: number;
+  label?: string;
+}) {
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div tabIndex={0} role="region" aria-label={label ?? 'Scrollable table'} style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', minWidth: min, fontSize: 13, borderCollapse: 'collapse' }}>
         {children}
       </table>

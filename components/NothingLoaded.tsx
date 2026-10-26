@@ -7,7 +7,7 @@ import { useSession } from '@/components/BookingsProvider';
 export function NothingLoaded({ what }: { what: string }) {
   const { loadDemo } = useSession();
   return (
-    <div className="nothing">
+    <main id="content" className="nothing">
       <div className="card empty">
         <h2 className="t-section">Nothing is loaded yet</h2>
         <p className="t-body prose" style={{ marginTop: 8 }}>
@@ -19,6 +19,6 @@ export function NothingLoaded({ what }: { what: string }) {
           <Link className="btn" href="/app">Open a shipment</Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

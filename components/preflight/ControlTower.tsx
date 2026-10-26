@@ -108,6 +108,9 @@ function BookingLink({
   onOpen?: (id: string) => void;
 }) {
   const style = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 44,
     fontFamily: font.mono,
     fontSize: 13,
     fontWeight: 600,
@@ -115,6 +118,7 @@ function BookingLink({
     background: 'none',
     border: 0,
     padding: 0,
+    marginTop: -11,
     cursor: 'pointer',
     textDecoration: 'underline',
     textUnderlineOffset: 3,
@@ -203,7 +207,7 @@ export default function ControlTower({
         main={
           <Card>
             <CardHeader title="The book" aside="Each strip is R-01 to R-10, left to right" />
-            <TableScroll>
+            <TableScroll label="The book: every shipment and its ten rules">
               <thead>
                 <tr>
                   <Th>Booking</Th>
