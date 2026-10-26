@@ -4,15 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useSession } from '@/components/BookingsProvider';
-
-/** The pages, in the order a seller works them. */
-export const PAGES = [
-  { href: '/control-tower', label: 'Overview', blurb: 'The whole book at once' },
-  { href: '/app', label: 'Shipment', blurb: 'One booking, in detail' },
-  { href: '/exceptions', label: 'Exceptions', blurb: 'Every finding, worst money first' },
-  { href: '/rules', label: 'Rules', blurb: 'Which checks actually bite' },
-  { href: '/warehouse', label: 'Warehouse', blurb: 'The count, on a phone' },
-] as const;
+import { PAGES } from '@/lib/pages';
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,6 +19,28 @@ export function Masthead() {
    */
   const pathname = usePathname().replace(/\/+$/, '') || '/';
   const masthead = useRef<HTMLElement>(null);
+
+  /**
+   * A one-pixel sentinel at the top of the document rather than a scroll
+   * listener: the observer fires twice in a session instead of on every frame,
+   * and the header picks up its hairline the moment the page has moved.
+   */
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const mark = document.createElement('div');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
+    document.body.prepend(mark);
+    const io = new IntersectionObserver(([entry]) => {
+      document.body.classList.toggle('is-scrolled', !entry.isIntersecting);
+    });
+    io.observe(mark);
+    return () => {
+      io.disconnect();
+      mark.remove();
+      document.body.classList.remove('is-scrolled');
+    };
+  }, []);
 
   // The drawer belongs to /app, and its toggle only renders there. Leaving it
   // open and navigating away would strand a scrim nothing could dismiss.

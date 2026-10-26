@@ -17,7 +17,8 @@ export function Page({ children }: { children: ReactNode }) {
       style={{
         width: '100%',
         boxSizing: 'border-box',
-        padding: 'clamp(16px, 4vw, 28px) clamp(16px, 4vw, 32px) 36px',
+        paddingBlock: 'clamp(16px, 4vw, 28px) 36px',
+        paddingInline: 'var(--gutter, 16px)',
         display: 'flex',
         flexDirection: 'column',
         gap: 18,

@@ -39,7 +39,18 @@
   --rail-w: 380px;
   --dossier-max: 820px;
   --masthead-h: 54px;
+
+  /* One easing and one duration, everywhere. A 0.14s linear-ish transition
+     reads as a browser default; a single long-settle curve reads as authored. */
+  --ease: cubic-bezier(.24, .84, .37, .99);
+  --dur: 280ms;
+
+  /* The one gutter the header, the nav and the page content all sit on. */
+  --gutter: 16px;
 }
+
+@media (min-width: 768px)  { :root { --gutter: 28px; } }
+@media (min-width: 1280px) { :root { --gutter: 40px; } }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -331,14 +342,19 @@ select:focus-visible,
   z-index: 30;
   background: var(--surface);
   color: var(--ink);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid transparent;
+  transition: border-color .4s var(--ease), box-shadow .4s var(--ease);
+}
+body.is-scrolled .masthead {
+  border-bottom-color: var(--hairline);
+  box-shadow: 0 6px 20px -16px rgba(15, 17, 22, .5);
 }
 
 .masthead-inner {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 16px;
+  padding: 12px var(--gutter) 10px;
   flex-wrap: wrap;
 }
 
@@ -1263,7 +1279,7 @@ select:focus-visible,
 
 /* Sits inside the masthead, so it inherits the brand ground and its ink. */
 .nav {
-  padding: 0 16px;
+  padding: 0 var(--gutter) 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1272,7 +1288,7 @@ select:focus-visible,
 
 .nav ul {
   display: flex;
-  gap: 26px;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1284,36 +1300,29 @@ select:focus-visible,
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 2px;
-  font-size: 14px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
   font-weight: 500;
-  letter-spacing: -.005em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
   color: var(--ink-2);
   text-decoration: none;
   white-space: nowrap;
-  transition: color .15s ease;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              background-color var(--dur) var(--ease);
 }
-.nav a:hover { color: var(--ink); opacity: 1; }
-.nav a:hover::after { background: var(--hairline); }
+.nav a:hover { color: var(--ink); border-color: var(--hairline); }
 
-.nav a::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: transparent;
-  transition: background-color .15s ease;
-}
-
+/* Selected is a ring and the brand colour, never a fill and never an
+   underline welded to the header's own hairline. */
 .nav a[aria-current="page"] {
-  color: var(--ink);
-  opacity: 1;
-  font-weight: 600;
+  color: var(--brand);
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
-.nav a[aria-current="page"]::after { background: var(--brand); }
 
 a.btn { text-decoration: none; color: var(--ink); }
 a.btn.btn-primary { color: #fff; }
@@ -1431,4 +1440,78 @@ a.btn.btn-primary { color: #fff; }
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .nav ul { padding-right: 28px; }
+}
+
+/* The native date widget on a bare input is the most obviously unstyled thing
+   in a header. Give every masthead control one height and draw our own glyph. */
+.masthead-tools .btn,
+.masthead-tools .date-wrap { height: 38px; }
+.masthead-tools .btn { border-radius: 999px; padding: 0 15px; }
+.masthead-tools .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.masthead-tools .date-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.masthead-tools .input[type="date"] {
+  height: 38px;
+  padding: 0 34px 0 14px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.masthead-tools .input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.masthead-tools .date-wrap::after {
+  content: '';
+  position: absolute;
+  right: 13px;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+  border: 1.5px solid var(--ink-2);
+  border-radius: 3px;
+  box-shadow: 0 -4px 0 -2.5px var(--ink-2);
+}
+
+/* The entry point for a section: mono, uppercase, brand, with a dot. */
+.t-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.t-eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* The masthead is 199px of a 390px phone otherwise. */
+@media (max-width: 767px) {
+  .masthead-brand .t-label { display: none; }
+  .masthead-tools .t-label { display: none; }
+  .masthead-inner { padding-top: 8px; padding-bottom: 6px; gap: 10px; }
+  .masthead-tools { gap: 6px; }
+  .masthead-tools .btn,
+  .masthead-tools .date-wrap,
+  .masthead-tools .input[type="date"] { height: 34px; }
+  .masthead-tools .btn { padding: 0 12px; font-size: 12.5px; }
 }
