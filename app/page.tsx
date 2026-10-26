@@ -227,7 +227,7 @@ export default function Page() {
                 <CheckRun booking={selected} result={result} />
                 <BookingCard booking={selected} result={result} />
                 <ItemsTable booking={selected} issues={result.issues} />
-                <Issues issues={result.issues} onApply={onApplyFix} />
+                <Issues issues={result.issues} onApply={onApplyFix} booking={selected} />
                 <Carrier
                   booking={selected}
                   rec={result.recommendation}
@@ -245,7 +245,13 @@ export default function Page() {
         </main>
 
         <aside className="col-rail pane" data-active={pane === 'chat'}>
-          <Chat booking={selected} today={today} onApply={applyToSelected} />
+          <Chat
+            booking={selected}
+            bookings={entries.map((e) => e.booking)}
+            today={today}
+            onApply={applyToSelected}
+            onSelectBooking={(id) => { setSelectedId(id); setWeights(null); }}
+          />
         </aside>
       </div>
     </div>

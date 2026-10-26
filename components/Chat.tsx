@@ -1,84 +1,107 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  applyExtraction, extract, nextQuestion, type Question,
-} from '@/lib/parse-chat';
+import { applyExtraction, extract, nextQuestion, type Question } from '@/lib/parse-chat';
+import { detectQuestion, respond } from '@/lib/answers';
 import { cloneBooking } from '@/lib/fixtures';
 import type { Booking, Item } from '@/lib/types';
 
 type Msg =
   | { kind: 'seller'; id: number; text: string }
   | { kind: 'assistant'; id: number; text: string }
+  | { kind: 'answer'; id: number; summary: string; detail: string[] }
   | { kind: 'system'; id: number; text: string }
   | { kind: 'item-form'; id: number; sku: string };
 
-const OPENING =
-  'Tell me about the shipment in your own words. Everything at once is fine, and so is one ' +
-  'thing at a time. I will ask for whatever is left.';
-
-let nextId = 1;
 type MsgInput =
   | { kind: 'seller'; text: string }
   | { kind: 'assistant'; text: string }
+  | { kind: 'answer'; summary: string; detail: string[] }
   | { kind: 'system'; text: string }
   | { kind: 'item-form'; sku: string };
+
+const OPENING =
+  'Tell me about the shipment in your own words, or ask me about one that is already ' +
+  'loaded. I answer on status, dates, weight, carrier, cost and what to do next.';
+
+let nextId = 1;
 const mk = (m: MsgInput): Msg => ({ ...m, id: nextId++ });
 
+/** Offered once a booking is complete enough to have answers. */
+const ASK_CHIPS = [
+  'What is the status?',
+  'When will it deliver?',
+  'Which carrier and why?',
+  'What do I do next?',
+  'How much is at risk?',
+];
+
 export function Chat({
-  booking, today, onApply,
+  booking, bookings, today, onApply, onSelectBooking,
 }: {
   booking: Booking;
+  bookings: Booking[];
   today: Date;
   onApply: (mutate: (b: Booking) => void) => void;
+  onSelectBooking: (id: string) => void;
 }) {
   const [messages, setMessages] = useState<Msg[]>(() => [mk({ kind: 'assistant', text: OPENING })]);
   const [draft, setDraft] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
   const watched = useRef(booking.id);
 
-  // Derived, not stored: the quick replies always offer what is actually
-  // still missing from the booking on screen.
-  const question: Question | null = nextQuestion(booking);
-
-  // Switching shipments in the queue switches what the rail is watching.
-  useEffect(() => {
-    if (watched.current === booking.id) return;
-    watched.current = booking.id;
-    setMessages((m) => [
-      ...m,
-      mk({ kind: 'system', text: `Now watching ${booking.id}` }),
-      mk({
-        kind: 'assistant',
-        text: nextQuestion(booking)
-          ? `${booking.id} is missing a few things. ${nextQuestion(booking)!.text}`
-          : `${booking.id} is loaded and checked. Tell me what to change and I will re-run all ten rules.`,
-      }),
-    ]);
-  }, [booking]);
+  const missing: Question | null = nextQuestion(booking);
 
   useEffect(() => {
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // Switching shipments in the queue switches what the rail is watching.
+  useEffect(() => {
+    if (watched.current === booking.id) return;
+    watched.current = booking.id;
+    const q = nextQuestion(booking);
+    setMessages((m) => [
+      ...m,
+      mk({ kind: 'system', text: `Now watching ${booking.id}` }),
+      mk({
+        kind: 'assistant',
+        text: q
+          ? `${booking.id} is missing a few things. ${q.text}`
+          : `${booking.id} is loaded and checked. Ask me anything about it, or tell me what to change.`,
+      }),
+    ]);
+  }, [booking]);
+
   function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
     setDraft('');
-
-    const extraction = extract(trimmed, booking, today);
     const added: Msg[] = [mk({ kind: 'seller', text: trimmed })];
 
+    // A question is answered from the engine. Only a shipment detail is parsed.
+    const question = detectQuestion(trimmed);
+    if (question) {
+      const a = respond(question, booking, bookings, today);
+      if (a.switchTo) {
+        // Pre-empt the watcher so the switch is announced once, here.
+        watched.current = a.switchTo;
+        onSelectBooking(a.switchTo);
+        added.push(mk({ kind: 'system', text: `Now watching ${a.switchTo}` }));
+      }
+      added.push(mk({ kind: 'answer', summary: a.summary, detail: a.detail }));
+      setMessages((m) => [...m, ...added]);
+      return;
+    }
+
+    const extraction = extract(trimmed, booking, today);
     let changes: { label: string }[] = [];
     onApply((b) => { changes = applyExtraction(b, extraction); });
 
     for (const c of changes) added.push(mk({ kind: 'system', text: c.label }));
     for (const item of extraction.items) added.push(mk({ kind: 'item-form', sku: item.sku }));
 
-    // The booking in props is last render's copy, so replay the SAME
-    // extraction onto a throwaway to work out what is still missing. Parsing
-    // twice would be wasteful and would advance the generated-sku counter.
     const after = cloneBooking(booking);
     applyExtraction(after, extraction);
     const q = nextQuestion(after);
@@ -87,9 +110,11 @@ export function Chat({
       added.push(mk({
         kind: 'assistant',
         text:
-          'I did not catch a shipment detail in that. I read cities, pallets, cartons, weight in ' +
-          'kilos, a value in pounds, a date, whether it is a warehouse or a business address, ' +
-          'whether a slot is booked, and product lines. ' + (q ? q.text : ''),
+          'I could not read that as a shipment detail or as a question I answer. For details I ' +
+          'read cities, pallets, cartons, weight in kilos, a value in pounds, a date, warehouse ' +
+          'or business address, whether a slot is booked, and product lines. For questions, try ' +
+          '"what is the status", "when will it deliver", "which carrier", "how much is at risk" ' +
+          'or "what do I do next". ' + (q ? q.text : ''),
       }));
     } else if (q) {
       added.push(mk({ kind: 'assistant', text: q.text }));
@@ -97,13 +122,14 @@ export function Chat({
       added.push(mk({
         kind: 'assistant',
         text:
-          'That is everything I need. The checks on the left have re-run against all ten rules and ' +
-          'the carrier ranking is up to date. Change anything and I will run them again.',
+          'That is everything I need. All ten rules and the carrier ranking have re-run. Ask me ' +
+          'for the status, the dates or the carrier, or tell me what to change.',
       }));
     }
-
     setMessages((m) => [...m, ...added]);
   }
+
+  const chips = missing ? missing.quickReplies : ASK_CHIPS;
 
   return (
     <>
@@ -111,9 +137,7 @@ export function Chat({
         <h2 className="t-section">Conversation</h2>
         <p className="rail-status t-small">
           <span className="dot" aria-hidden="true" />
-          {booking.seller || booking.destCity
-            ? `Watching ${booking.id}`
-            : 'Ready when you are'}
+          {booking.seller || booking.destCity ? `Watching ${booking.id}` : 'Ready when you are'}
         </p>
       </div>
 
@@ -127,15 +151,16 @@ export function Chat({
             if (!item) return null;
             return <ItemForm key={m.id} item={item} onApply={onApply} />;
           }
-          return (
-            <div key={m.id} className="bubble" data-from={m.kind}>{m.text}</div>
-          );
+          if (m.kind === 'answer') {
+            return <AnswerBubble key={m.id} summary={m.summary} detail={m.detail} />;
+          }
+          return <div key={m.id} className="bubble" data-from={m.kind}>{m.text}</div>;
         })}
       </div>
 
-      {question && question.quickReplies.length > 0 && (
+      {chips.length > 0 && (
         <div className="quick-replies">
-          {question.quickReplies.map((q) => (
+          {chips.map((q) => (
             <button key={q} type="button" className="quick-reply" onClick={() => send(q)}>{q}</button>
           ))}
         </div>
@@ -148,7 +173,7 @@ export function Chat({
             id="composer"
             rows={1}
             value={draft}
-            placeholder="3 pallets from Manchester to Frankfurt, 700 kg…"
+            placeholder={missing ? '3 pallets from Manchester to Frankfurt, 700 kg…' : 'Ask about status, dates, carrier or cost…'}
             onChange={(e) => {
               setDraft(e.target.value);
               e.target.style.height = 'auto';
@@ -165,10 +190,41 @@ export function Chat({
           </button>
         </div>
         <p className="t-label" style={{ marginTop: 7 }}>
-          Read by a fixed set of patterns, never by a model. Nothing here leaves the browser.
+          Answers are read straight off the rulebook, never from a model. Nothing here leaves the browser.
         </p>
       </div>
     </>
+  );
+}
+
+/** The suggestion first; the reasoning behind it on request. */
+function AnswerBubble({ summary, detail }: { summary: string; detail: string[] }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  return (
+    <div className="bubble answer" data-from="assistant">
+      <p className="t-card-title">{summary}</p>
+      {detail.length > 0 && (
+        <details
+          className="answer-why"
+          ref={ref}
+          onToggle={() => {
+            // Opening it adds height below the fold, so bring it into view.
+            if (ref.current?.open) {
+              ref.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }}
+        >
+          <summary className="t-small">Why, and what happens next</summary>
+          <div className="answer-detail t-small">
+            {detail.map((line, n) =>
+              line === ''
+                ? <span key={n} className="answer-gap" />
+                : <p key={n} className={/^\s{2}/.test(line) ? 'answer-sub' : undefined}>{line.trim()}</p>,
+            )}
+          </div>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -176,12 +232,7 @@ export function Chat({
  * Pre-filled with whatever was understood, and editable, so a misread costs a
  * correction rather than a dead end.
  */
-function ItemForm({
-  item, onApply,
-}: {
-  item: Item;
-  onApply: (mutate: (b: Booking) => void) => void;
-}) {
+function ItemForm({ item, onApply }: { item: Item; onApply: (mutate: (b: Booking) => void) => void }) {
   const set = (field: keyof Item, raw: string) => {
     onApply((b) => {
       const target = b.items.find((i) => i.sku === item.sku);
@@ -194,15 +245,12 @@ function ItemForm({
       }
     });
   };
-
   const num = (v: number | null) => (v === null ? '' : String(v));
 
   return (
     <div className="item-form">
       <p className="t-card-title">{item.sku}</p>
-      <p className="t-label" style={{ marginTop: 2 }}>
-        This is what I understood. Correct anything I got wrong.
-      </p>
+      <p className="t-label" style={{ marginTop: 2 }}>This is what I understood. Correct anything I got wrong.</p>
       <div className="item-form-grid">
         <Field label="Description" value={item.description} onChange={(v) => set('description', v)} wide />
         <Field label="HS code" value={item.hsCode} onChange={(v) => set('hsCode', v)} mono />
@@ -225,12 +273,7 @@ function Field({
   return (
     <div className="field" style={wide ? { gridColumn: '1 / -1' } : undefined}>
       <label className="t-label" htmlFor={`f-${label}`}>{label}</label>
-      <input
-        id={`f-${label}`}
-        className={`input${mono ? ' t-mono' : ''}`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <input id={`f-${label}`} className={`input${mono ? ' t-mono' : ''}`} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

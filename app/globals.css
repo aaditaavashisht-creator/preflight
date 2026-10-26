@@ -1005,3 +1005,99 @@ select:focus-visible,
 @media (min-width: 1024px) and (max-width: 1439px) {
   .drawer-btn { display: inline-flex; }
 }
+
+/* ==================================================================
+   Rule guide — what the ten rules check, collapsed by default
+   ================================================================== */
+
+.rule-guide {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  margin-bottom: 14px;
+}
+
+.rule-guide > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-wrap: wrap;
+  border-radius: var(--radius-chip);
+}
+.rule-guide > summary::-webkit-details-marker { display: none; }
+.rule-guide > summary::before {
+  content: '';
+  width: 0; height: 0;
+  flex: none;
+  margin-right: 8px;
+  border-left: 4px solid var(--ink-2);
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform .15s ease;
+}
+.rule-guide[open] > summary::before { transform: rotate(90deg); }
+.rule-guide > summary:hover { background: var(--surface); }
+
+.rule-guide-body { padding: 0 12px 12px; }
+
+.rule-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+
+.rule-item {
+  list-style: none;
+  padding: 9px 11px;
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--sev);
+}
+.rule-item-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+.rule-item .sev-chip { font-size: 10px; padding: 2px 7px; }
+
+/* ==================================================================
+   Answer bubble — the suggestion, then the reasoning behind it
+   ================================================================== */
+
+.bubble.answer { max-width: 100%; }
+
+.answer-why { margin-top: 8px; }
+.answer-why > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.answer-why > summary::-webkit-details-marker { display: none; }
+.answer-why > summary::before {
+  content: '';
+  width: 0; height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform .15s ease;
+}
+.answer-why[open] > summary::before { transform: rotate(90deg); }
+.answer-why > summary:hover { color: var(--ink); }
+
+.answer-detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.answer-detail p { overflow-wrap: anywhere; }
+.answer-detail .answer-sub { padding-left: 12px; color: var(--ink-2); }
+.answer-gap { height: 5px; }

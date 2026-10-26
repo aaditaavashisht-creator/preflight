@@ -1,8 +1,9 @@
 'use client';
 
 import { gbp } from '@/lib/format';
-import type { Issue } from '@/lib/types';
+import type { Booking, Issue } from '@/lib/types';
 import { sevClass, toneOfSeverity } from './Severity';
+import { RuleGuide } from './RuleGuide';
 
 function deltaKind(delta: string): 'good' | 'neutral' {
   return /estimate|weigh it|needs a decision/i.test(delta) ? 'neutral' : 'good';
@@ -14,10 +15,11 @@ function days([a, b]: [number, number]): string {
 }
 
 export function Issues({
-  issues, onApply,
+  issues, onApply, booking,
 }: {
   issues: Issue[];
   onApply: (issue: Issue) => void;
+  booking: Booking;
 }) {
   const total = issues.reduce((n, i) => n + (i.impactCost || 0), 0);
 
@@ -31,6 +33,8 @@ export function Issues({
             : `${issues.length} of ten rules ${issues.length === 1 ? 'has' : 'have'} something to say`}
         </span>
       </div>
+
+      <RuleGuide booking={booking} issues={issues} />
 
       {issues.length === 0 ? (
         <p className="t-body prose">

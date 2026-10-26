@@ -12,19 +12,84 @@ export interface RuleMeta {
   name: string;
   severity: Severity;
   stage: 'Paperwork clear' | 'Counts agree' | 'Freight accepted' | 'Ready for collection';
+  /** What it catches, and what happens when it is missed. */
+  description: string;
 }
 
 export const RULES: RuleMeta[] = [
-  { id: 'R-01', name: 'Every item needs an HS code of at least 6 digits', severity: 'Red', stage: 'Paperwork clear' },
-  { id: 'R-02', name: 'Declared value matches the item lines', severity: 'Red', stage: 'Paperwork clear' },
-  { id: 'R-03', name: 'Units per carton x cartons equals quantity', severity: 'Red', stage: 'Counts agree' },
-  { id: 'R-04', name: 'Booking cartons equal the sum of item cartons', severity: 'Red', stage: 'Counts agree' },
-  { id: 'R-05', name: 'Weight per pallet is within a carrier ceiling', severity: 'Red', stage: 'Freight accepted' },
-  { id: 'R-06', name: 'No lithium batteries, aerosols or flammable liquids', severity: 'Red', stage: 'Freight accepted' },
-  { id: 'R-07', name: 'Gross weight covers the net weight of the goods', severity: 'Amber', stage: 'Counts agree' },
-  { id: 'R-08', name: 'Warehouse deliveries need a booked appointment', severity: 'Amber', stage: 'Ready for collection' },
-  { id: 'R-09', name: 'Every item needs a country of origin', severity: 'Amber', stage: 'Paperwork clear' },
-  { id: 'R-10', name: 'Ready-to-ship date must not be in the past', severity: 'Amber', stage: 'Ready for collection' },
+  {
+    id: 'R-01', name: 'Every item needs an HS code of at least 6 digits',
+    severity: 'Red', stage: 'Paperwork clear',
+    description:
+      'The commodity code is what the customs entry is filed on. A short code is usually a ' +
+      'six digit code whose leading zero a spreadsheet dropped. Without a full code the entry ' +
+      'cannot be filed and the pallet sits at the border.',
+  },
+  {
+    id: 'R-02', name: 'Declared value matches the item lines',
+    severity: 'Red', stage: 'Paperwork clear',
+    description:
+      'The booking total has to equal quantity times unit price across the items, within 1%. ' +
+      'A gap means either the header or one line is wrong, and customs query the entry rather ' +
+      'than guess which.',
+  },
+  {
+    id: 'R-03', name: 'Units per carton x cartons equals quantity',
+    severity: 'Red', stage: 'Counts agree',
+    description:
+      'Each item line has to pack out. When it does not, the receiving warehouse counts ' +
+      'something different from the manifest and raises a shortage against you.',
+  },
+  {
+    id: 'R-04', name: 'Booking cartons equal the sum of item cartons',
+    severity: 'Red', stage: 'Counts agree',
+    description:
+      'The header carton total has to equal the item lines added up. A mismatch means the ' +
+      'carrier manifest disagrees with what is on the pallet before it even leaves.',
+  },
+  {
+    id: 'R-05', name: 'Weight per pallet is within a carrier ceiling',
+    severity: 'Red', stage: 'Freight accepted',
+    description:
+      'Gross weight divided by pallets has to be inside at least one service ceiling on the ' +
+      'lane. The ceilings are not ordered by price, so a heavy shipment loses the premium ' +
+      'service first and can end up with nothing that will take it.',
+  },
+  {
+    id: 'R-06', name: 'No lithium batteries, aerosols or flammable liquids',
+    severity: 'Red', stage: 'Freight accepted',
+    description:
+      'A general road groupage trailer will not carry dangerous goods undeclared, and when ' +
+      'they are found at the hub the whole trailer is refused, not just your pallet.',
+  },
+  {
+    id: 'R-07', name: 'Gross weight covers the net weight of the goods',
+    severity: 'Amber', stage: 'Counts agree',
+    description:
+      'Gross includes cartons, pallets and wrap, so it cannot sit below the weight of the ' +
+      'goods themselves. The hub weighs every pallet and bills a surcharge for a mismatch.',
+  },
+  {
+    id: 'R-08', name: 'Warehouse deliveries need a booked appointment',
+    severity: 'Amber', stage: 'Ready for collection',
+    description:
+      'A warehouse turns away a trailer that arrives without a slot. Slots at EU fulfilment ' +
+      'centres run three to five working days out, so booking late costs a redelivery.',
+  },
+  {
+    id: 'R-09', name: 'Every item needs a country of origin',
+    severity: 'Amber', stage: 'Paperwork clear',
+    description:
+      'Origin is where the goods were made, not where they ship from. Leaving it blank loses ' +
+      'any preferential duty on the entry and invites a customs query.',
+  },
+  {
+    id: 'R-10', name: 'Ready-to-ship date must not be in the past',
+    severity: 'Amber', stage: 'Ready for collection',
+    description:
+      'A past ready date does not get a late collection. It gets no collection at all, ' +
+      'because the window closed and nothing re-opens it automatically.',
+  },
 ];
 
 export const RULE_IDS = RULES.map((r) => r.id);
