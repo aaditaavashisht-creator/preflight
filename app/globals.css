@@ -329,14 +329,9 @@ select:focus-visible,
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--brand);
-  color: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, .12);
-}
-:root[data-theme="dark"] .masthead,
-:root:not([data-theme="light"]) .masthead { color: #1A0C06; }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .masthead { color: #fff; }
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .masthead-inner {
@@ -347,19 +342,9 @@ select:focus-visible,
   flex-wrap: wrap;
 }
 
-.masthead .input {
-  background: rgba(255, 255, 255, .16);
-  border-color: rgba(255, 255, 255, .3);
-  color: inherit;
-  width: auto;
-}
-.masthead .btn {
-  background: rgba(255, 255, 255, .14);
-  border-color: rgba(255, 255, 255, .28);
-  color: inherit;
-}
-.masthead .btn:hover:not(:disabled) { background: rgba(255, 255, 255, .24); }
-.masthead :focus-visible { outline-color: currentColor; }
+.masthead .input { width: auto; }
+.masthead .btn { background: var(--surface); }
+.masthead .btn:hover:not(:disabled) { background: var(--inset); }
 
 .workspace {
   flex: 1;
@@ -375,6 +360,7 @@ select:focus-visible,
   background: var(--surface);
   position: sticky;
   top: var(--masthead-h);
+  min-height: calc(100dvh - var(--masthead-h));
   max-height: calc(100dvh - var(--masthead-h));
   overflow-y: auto;
 }
@@ -1254,7 +1240,7 @@ select:focus-visible,
 
 /* Sits inside the masthead, so it inherits the brand ground and its ink. */
 .nav {
-  padding: 0 16px 9px;
+  padding: 0 16px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1263,7 +1249,7 @@ select:focus-visible,
 
 .nav ul {
   display: flex;
-  gap: 4px;
+  gap: 26px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1271,28 +1257,40 @@ select:focus-visible,
 }
 
 .nav a {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 13px;
-  border-radius: var(--radius-chip);
-  font-size: 13px;
+  min-height: 44px;
+  padding: 0 2px;
+  font-size: 14px;
   font-weight: 500;
-  color: inherit;
+  letter-spacing: -.005em;
+  color: var(--ink-2);
   text-decoration: none;
-  opacity: .8;
   white-space: nowrap;
-  transition: background-color .15s ease, opacity .15s ease;
+  transition: color .15s ease;
 }
-.nav a:hover { background: rgba(255, 255, 255, .18); opacity: 1; }
+.nav a:hover { color: var(--ink); opacity: 1; }
+.nav a:hover::after { background: var(--hairline); }
+
+.nav a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  transition: background-color .15s ease;
+}
 
 .nav a[aria-current="page"] {
-  background: var(--surface);
   color: var(--ink);
   opacity: 1;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(15, 17, 22, .14);
 }
+.nav a[aria-current="page"]::after { background: var(--brand); }
 
 a.btn { text-decoration: none; color: var(--ink); }
 a.btn.btn-primary { color: #fff; }
@@ -1329,3 +1327,57 @@ a.btn.btn-primary { color: #fff; }
   .phone-frame { padding: 0 0 32px; }
   .phone-shell { border: 0; border-radius: 0; box-shadow: none; max-width: none; }
 }
+
+/* The empty dossier: show the rulebook rather than a lot of nothing. */
+.rulebook-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.rulebook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rulebook-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--sev-line, var(--hairline));
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+}
+.rulebook-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rulebook-id { font-size: 12px; font-weight: 600; }
+.rulebook-name { font-weight: 550; line-height: 1.35; }
+.rulebook-why { line-height: 1.45; }
+
+/* The brand mark. A square of orange beside the name does the job the whole
+   bar used to do badly. */
+.masthead-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-dot {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--brand);
+}
+.masthead-brand .t-section { font-weight: 650; }

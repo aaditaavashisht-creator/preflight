@@ -12,6 +12,7 @@ import { Queue } from '@/components/Queue';
 import { Readiness } from '@/components/Readiness';
 import { Upload } from '@/components/Upload';
 import { VerdictBand } from '@/components/Verdict';
+import { RULE_CARDS } from '@/lib/dashboard';
 import { fmtDate } from '@/lib/format';
 
 /** One booking, in detail: the queue beside it and the conversation to the right. */
@@ -101,24 +102,52 @@ export function Workspace() {
   );
 }
 
+/**
+ * Nothing is loaded yet, so show what will be checked rather than a small card
+ * in a lot of empty space. The rulebook is the product; it may as well be the
+ * first thing a stranger reads.
+ */
 function EmptyState({ onDemo, onChat }: { onDemo: () => void; onChat: () => void }) {
   return (
-    <section className="card empty">
-      <h2 className="t-section">Two ways to start</h2>
-      <p className="t-body prose" style={{ marginTop: 8 }}>
-        Describe a shipment in the conversation on the right and I will ask for whatever you leave
-        out. Or drop your own Bookings and Items spreadsheet on the left and I will check every row
-        against the same ten rules.
-      </p>
-      <div className="empty-actions">
-        <button type="button" className="btn btn-primary" onClick={onDemo}>Load the demo set</button>
-        <button type="button" className="btn" onClick={onChat}>Describe a shipment</button>
-      </div>
-      <hr className="hr" />
-      <p className="t-small muted prose">
-        Ten rules, each one a thing that actually holds shipments at a border or short-receives them
-        at a warehouse. Every failure says which field is wrong and what to put there instead.
-      </p>
-    </section>
+    <>
+      <section className="card empty">
+        <h2 className="t-section">Two ways to start</h2>
+        <p className="t-body prose" style={{ marginTop: 8 }}>
+          Describe a shipment in the conversation on the right and I will ask for whatever you
+          leave out. Or drop your own Bookings and Items spreadsheet on the left and I will check
+          every row against the same ten rules.
+        </p>
+        <div className="empty-actions">
+          <button type="button" className="btn btn-primary" onClick={onDemo}>Load the demo set</button>
+          <button type="button" className="btn" onClick={onChat}>Describe a shipment</button>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="rulebook-head">
+          <h2 className="t-section">What gets checked</h2>
+          <p className="t-label">
+            {RULE_CARDS.filter((r) => r.stops).length} stop a shipment ·{' '}
+            {RULE_CARDS.filter((r) => !r.stops).length} cost time or money
+          </p>
+        </div>
+        <ul className="rulebook-grid">
+          {RULE_CARDS.map((r) => (
+            <li key={r.id} className={`rulebook-item ${r.stops ? 'sev-red' : 'sev-amber'}`}>
+              <span className="rulebook-top">
+                <span className="t-mono rulebook-id">{r.id}</span>
+                <span className="t-label sev-text">{r.stops ? 'Stops it' : 'Costs you'}</span>
+              </span>
+              <span className="t-small rulebook-name">{r.title}</span>
+              <span className="t-small muted rulebook-why">{r.why}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="t-small muted prose" style={{ marginTop: 4 }}>
+          Every failure names the field that is wrong and what to put there instead. Nothing is
+          uploaded; the whole rulebook runs in this browser.
+        </p>
+      </section>
+    </>
   );
 }

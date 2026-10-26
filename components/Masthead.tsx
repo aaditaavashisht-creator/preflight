@@ -58,10 +58,11 @@ export function Masthead() {
         )}
 
         <Link href="/" className="masthead-brand" style={{ minWidth: 0 }}>
-          <p className="t-section" style={{ letterSpacing: '-.01em' }}>Pre-flight</p>
-          <p className="t-label" style={{ color: 'inherit', opacity: .8 }}>
-            Catch it before it ships, not after it is stuck
-          </p>
+          <span className="brand-dot" aria-hidden="true" />
+          <span style={{ minWidth: 0 }}>
+            <p className="t-section" style={{ letterSpacing: '-.01em' }}>Pre-flight</p>
+            <p className="t-label">Catch it before it ships, not after it is stuck</p>
+          </span>
         </Link>
 
         <div className="masthead-tools">
